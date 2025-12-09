@@ -352,7 +352,7 @@ export const MeetingModal = ({ open, onOpenChange, meeting, onSuccess }: Meeting
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[72vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{meeting ? "Edit Meeting" : "New Meeting"}</DialogTitle>
         </DialogHeader>
