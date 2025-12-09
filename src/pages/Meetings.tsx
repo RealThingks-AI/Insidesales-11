@@ -291,6 +291,7 @@ const Meetings = () => {
               setEditingMeeting(meeting);
               setShowModal(true);
             }}
+            onMeetingUpdated={fetchMeetings}
           />
         ) : (
           <div className="space-y-4">
