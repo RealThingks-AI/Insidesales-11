@@ -75,14 +75,13 @@ async function getUserId(accessToken: string, email: string): Promise<string> {
 async function cancelCalendarEvents(accessToken: string, userId: string, joinUrl: string): Promise<boolean> {
   console.log('Searching for calendar events with join URL:', joinUrl);
   
-  // Search for calendar events that contain the Teams meeting join URL
-  // We'll look at recent and upcoming events
+  // Search for calendar events - limited time range for better performance
   const now = new Date();
-  const startDateTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString(); // 30 days ago
-  const endDateTime = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString(); // 1 year ahead
+  const startDateTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 days ago
+  const endDateTime = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(); // 30 days ahead
   
   const eventsResponse = await fetch(
-    `https://graph.microsoft.com/v1.0/users/${userId}/calendarView?startDateTime=${startDateTime}&endDateTime=${endDateTime}&$top=100&$select=id,subject,onlineMeeting,isOnlineMeeting`,
+    `https://graph.microsoft.com/v1.0/users/${userId}/calendarView?startDateTime=${startDateTime}&endDateTime=${endDateTime}&$top=50&$select=id,subject,onlineMeeting,isOnlineMeeting`,
     {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -104,10 +103,9 @@ async function cancelCalendarEvents(accessToken: string, userId: string, joinUrl
   let cancelledCount = 0;
   
   for (const event of eventsData.value || []) {
-    // Check if this event has the matching join URL
-    if (event.onlineMeeting?.joinUrl === joinUrl || 
-        event.onlineMeeting?.joinUrl?.includes(joinUrl) ||
-        joinUrl.includes(event.onlineMeeting?.joinUrl || '')) {
+    // Only match EXACT join URL to avoid deleting wrong events
+    const eventJoinUrl = event.onlineMeeting?.joinUrl;
+    if (eventJoinUrl && eventJoinUrl === joinUrl) {
       console.log('Found matching calendar event:', event.id, event.subject);
       
       // Cancel/Delete the calendar event
@@ -124,6 +122,8 @@ async function cancelCalendarEvents(accessToken: string, userId: string, joinUrl
       if (deleteResponse.ok || deleteResponse.status === 204) {
         console.log('Successfully deleted calendar event:', event.id);
         cancelledCount++;
+        // Only delete one matching event to be safe
+        break;
       } else {
         const deleteError = await deleteResponse.text();
         console.error('Failed to delete calendar event:', deleteError);
