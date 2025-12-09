@@ -14,7 +14,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 
-type SortColumn = 'subject' | 'start_time' | 'lead_contact' | 'status' | null;
+type SortColumn = 'subject' | 'date' | 'time' | 'lead_contact' | 'status' | null;
 type SortDirection = 'asc' | 'desc';
 interface Meeting {
   id: string;
@@ -129,9 +129,15 @@ const Meetings = () => {
             aValue = a.subject?.toLowerCase() || '';
             bValue = b.subject?.toLowerCase() || '';
             break;
-          case 'start_time':
-            aValue = new Date(a.start_time).getTime();
-            bValue = new Date(b.start_time).getTime();
+          case 'date':
+            aValue = new Date(a.start_time).setHours(0, 0, 0, 0);
+            bValue = new Date(b.start_time).setHours(0, 0, 0, 0);
+            break;
+          case 'time':
+            const aDate = new Date(a.start_time);
+            const bDate = new Date(b.start_time);
+            aValue = aDate.getHours() * 60 + aDate.getMinutes();
+            bValue = bDate.getHours() * 60 + bDate.getMinutes();
             break;
           case 'lead_contact':
             aValue = (a.lead_name || a.contact_name || '').toLowerCase();
@@ -307,10 +313,18 @@ const Meetings = () => {
                   </TableHead>
                   <TableHead>
                     <button 
-                      onClick={() => handleSort('start_time')} 
+                      onClick={() => handleSort('date')} 
                       className="flex items-center hover:text-foreground transition-colors"
                     >
-                      Date & Time {getSortIcon('start_time')}
+                      Date {getSortIcon('date')}
+                    </button>
+                  </TableHead>
+                  <TableHead>
+                    <button 
+                      onClick={() => handleSort('time')} 
+                      className="flex items-center hover:text-foreground transition-colors"
+                    >
+                      Time {getSortIcon('time')}
                     </button>
                   </TableHead>
                   <TableHead>
@@ -335,7 +349,7 @@ const Meetings = () => {
               </TableHeader>
               <TableBody>
                 {filteredMeetings.length === 0 ? <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       <Calendar className="h-12 w-12 mx-auto mb-2 opacity-50" />
                       No meetings found
                     </TableCell>
@@ -344,13 +358,11 @@ const Meetings = () => {
                         <Checkbox checked={selectedMeetings.includes(meeting.id)} onCheckedChange={checked => handleSelectMeeting(meeting.id, !!checked)} aria-label={`Select ${meeting.subject}`} />
                       </TableCell>
                       <TableCell className="font-medium">{meeting.subject}</TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          <div>{format(new Date(meeting.start_time), 'MMM dd, yyyy')}</div>
-                          <div className="text-muted-foreground">
-                            {format(new Date(meeting.start_time), 'HH:mm')} - {format(new Date(meeting.end_time), 'HH:mm')}
-                          </div>
-                        </div>
+                      <TableCell className="text-sm">
+                        {format(new Date(meeting.start_time), 'MMM dd, yyyy')}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {format(new Date(meeting.start_time), 'HH:mm')} - {format(new Date(meeting.end_time), 'HH:mm')}
                       </TableCell>
                       <TableCell>
                         {meeting.lead_name && <div>Lead: {meeting.lead_name}</div>}
