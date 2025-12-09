@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { CRMLayout } from '@/components/CRMLayout';
 import { useTasks } from '@/hooks/useTasks';
 import { Task, TaskStatus } from '@/types/task';
 import { TaskModal } from '@/components/tasks/TaskModal';
@@ -76,86 +75,82 @@ const Tasks = () => {
 
   if (loading) {
     return (
-      <CRMLayout>
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      </CRMLayout>
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
     );
   }
 
   return (
-    <CRMLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Tasks</h1>
-            <p className="text-muted-foreground">
-              Manage your tasks and to-dos
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
-              <TabsList>
-                <TabsTrigger value="list" className="flex items-center gap-1">
-                  <List className="h-4 w-4" />
-                  <span className="hidden sm:inline">List</span>
-                </TabsTrigger>
-                <TabsTrigger value="kanban" className="flex items-center gap-1">
-                  <LayoutGrid className="h-4 w-4" />
-                  <span className="hidden sm:inline">Kanban</span>
-                </TabsTrigger>
-                <TabsTrigger value="calendar" className="flex items-center gap-1">
-                  <Calendar className="h-4 w-4" />
-                  <span className="hidden sm:inline">Calendar</span>
-                </TabsTrigger>
-                <TabsTrigger value="analytics" className="flex items-center gap-1">
-                  <BarChart3 className="h-4 w-4" />
-                  <span className="hidden sm:inline">Analytics</span>
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-
-            <Button onClick={() => setShowModal(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Task
-            </Button>
-          </div>
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Tasks</h1>
+          <p className="text-muted-foreground">
+            Manage your tasks and to-dos
+          </p>
         </div>
 
-        {/* Content based on view mode */}
-        {viewMode === 'list' && (
-          <TaskListView
-            tasks={tasks}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            onStatusChange={handleStatusChange}
-            onToggleComplete={handleToggleComplete}
-          />
-        )}
+        <div className="flex items-center gap-3">
+          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
+            <TabsList>
+              <TabsTrigger value="list" className="flex items-center gap-1">
+                <List className="h-4 w-4" />
+                <span className="hidden sm:inline">List</span>
+              </TabsTrigger>
+              <TabsTrigger value="kanban" className="flex items-center gap-1">
+                <LayoutGrid className="h-4 w-4" />
+                <span className="hidden sm:inline">Kanban</span>
+              </TabsTrigger>
+              <TabsTrigger value="calendar" className="flex items-center gap-1">
+                <Calendar className="h-4 w-4" />
+                <span className="hidden sm:inline">Calendar</span>
+              </TabsTrigger>
+              <TabsTrigger value="analytics" className="flex items-center gap-1">
+                <BarChart3 className="h-4 w-4" />
+                <span className="hidden sm:inline">Analytics</span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
 
-        {viewMode === 'kanban' && (
-          <TaskKanbanView
-            tasks={tasks}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            onStatusChange={handleStatusChange}
-          />
-        )}
-
-        {viewMode === 'calendar' && (
-          <TaskCalendarView
-            tasks={tasks}
-            onEdit={handleEdit}
-          />
-        )}
-
-        {viewMode === 'analytics' && (
-          <TaskAnalyticsDashboard tasks={tasks} />
-        )}
+          <Button onClick={() => setShowModal(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Task
+          </Button>
+        </div>
       </div>
+
+      {/* Content based on view mode */}
+      {viewMode === 'list' && (
+        <TaskListView
+          tasks={tasks}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          onStatusChange={handleStatusChange}
+          onToggleComplete={handleToggleComplete}
+        />
+      )}
+
+      {viewMode === 'kanban' && (
+        <TaskKanbanView
+          tasks={tasks}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          onStatusChange={handleStatusChange}
+        />
+      )}
+
+      {viewMode === 'calendar' && (
+        <TaskCalendarView
+          tasks={tasks}
+          onEdit={handleEdit}
+        />
+      )}
+
+      {viewMode === 'analytics' && (
+        <TaskAnalyticsDashboard tasks={tasks} />
+      )}
 
       {/* Task Modal */}
       <TaskModal
@@ -181,7 +176,7 @@ const Tasks = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </CRMLayout>
+    </div>
   );
 };
 
