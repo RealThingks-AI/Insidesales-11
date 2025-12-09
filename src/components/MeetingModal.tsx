@@ -14,21 +14,58 @@ import { Calendar } from "@/components/ui/calendar";
 import { Video, Loader2, CalendarIcon, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Common timezones
+// Comprehensive timezones (40 options, ordered by GMT offset)
 const TIMEZONES = [
-  { value: "Asia/Kolkata", label: "(GMT+05:30) Chennai, Kolkata, Mumbai, New Delhi" },
+  { value: "Pacific/Midway", label: "(GMT-11:00) Midway Island, Samoa" },
+  { value: "Pacific/Honolulu", label: "(GMT-10:00) Hawaii" },
+  { value: "America/Anchorage", label: "(GMT-09:00) Alaska" },
+  { value: "America/Los_Angeles", label: "(GMT-08:00) Los Angeles, San Francisco, Seattle" },
+  { value: "America/Tijuana", label: "(GMT-08:00) Tijuana, Baja California" },
+  { value: "America/Denver", label: "(GMT-07:00) Denver, Phoenix, Salt Lake City" },
+  { value: "America/Phoenix", label: "(GMT-07:00) Arizona" },
+  { value: "America/Chicago", label: "(GMT-06:00) Chicago, Dallas, Houston" },
+  { value: "America/Mexico_City", label: "(GMT-06:00) Mexico City, Guadalajara" },
+  { value: "America/New_York", label: "(GMT-05:00) New York, Washington, Boston" },
+  { value: "America/Bogota", label: "(GMT-05:00) Bogota, Lima, Quito" },
+  { value: "America/Caracas", label: "(GMT-04:00) Caracas, La Paz" },
+  { value: "America/Santiago", label: "(GMT-04:00) Santiago" },
+  { value: "America/Halifax", label: "(GMT-04:00) Atlantic Time (Canada)" },
+  { value: "America/Sao_Paulo", label: "(GMT-03:00) Brasilia, Sao Paulo" },
+  { value: "America/Buenos_Aires", label: "(GMT-03:00) Buenos Aires, Georgetown" },
+  { value: "Atlantic/South_Georgia", label: "(GMT-02:00) Mid-Atlantic" },
+  { value: "Atlantic/Azores", label: "(GMT-01:00) Azores" },
+  { value: "Atlantic/Cape_Verde", label: "(GMT-01:00) Cape Verde Islands" },
   { value: "UTC", label: "(GMT+00:00) Coordinated Universal Time" },
   { value: "Europe/London", label: "(GMT+00:00) London, Edinburgh, Dublin" },
+  { value: "Africa/Casablanca", label: "(GMT+00:00) Casablanca, Monrovia" },
   { value: "Europe/Berlin", label: "(GMT+01:00) Berlin, Vienna, Rome, Stockholm" },
   { value: "Europe/Paris", label: "(GMT+01:00) Paris, Brussels, Madrid, Amsterdam" },
+  { value: "Africa/Lagos", label: "(GMT+01:00) West Central Africa" },
+  { value: "Europe/Athens", label: "(GMT+02:00) Athens, Bucharest, Istanbul" },
+  { value: "Africa/Cairo", label: "(GMT+02:00) Cairo" },
+  { value: "Africa/Johannesburg", label: "(GMT+02:00) Johannesburg, Pretoria" },
+  { value: "Europe/Moscow", label: "(GMT+03:00) Moscow, St. Petersburg" },
+  { value: "Asia/Kuwait", label: "(GMT+03:00) Kuwait, Riyadh, Baghdad" },
+  { value: "Africa/Nairobi", label: "(GMT+03:00) Nairobi" },
+  { value: "Asia/Tehran", label: "(GMT+03:30) Tehran" },
   { value: "Asia/Dubai", label: "(GMT+04:00) Dubai, Abu Dhabi, Muscat" },
+  { value: "Asia/Kabul", label: "(GMT+04:30) Kabul" },
+  { value: "Asia/Karachi", label: "(GMT+05:00) Islamabad, Karachi, Tashkent" },
+  { value: "Asia/Kolkata", label: "(GMT+05:30) Chennai, Kolkata, Mumbai, New Delhi" },
+  { value: "Asia/Kathmandu", label: "(GMT+05:45) Kathmandu" },
+  { value: "Asia/Dhaka", label: "(GMT+06:00) Dhaka, Almaty" },
+  { value: "Asia/Yangon", label: "(GMT+06:30) Yangon (Rangoon)" },
+  { value: "Asia/Bangkok", label: "(GMT+07:00) Bangkok, Hanoi, Jakarta" },
   { value: "Asia/Singapore", label: "(GMT+08:00) Singapore, Kuala Lumpur, Perth" },
+  { value: "Asia/Hong_Kong", label: "(GMT+08:00) Hong Kong, Beijing, Taipei" },
   { value: "Asia/Tokyo", label: "(GMT+09:00) Tokyo, Seoul, Osaka" },
+  { value: "Australia/Darwin", label: "(GMT+09:30) Darwin, Adelaide" },
   { value: "Australia/Sydney", label: "(GMT+10:00) Sydney, Melbourne, Brisbane" },
-  { value: "America/New_York", label: "(GMT-05:00) New York, Washington, Boston" },
-  { value: "America/Chicago", label: "(GMT-06:00) Chicago, Dallas, Houston" },
-  { value: "America/Denver", label: "(GMT-07:00) Denver, Phoenix, Salt Lake City" },
-  { value: "America/Los_Angeles", label: "(GMT-08:00) Los Angeles, San Francisco, Seattle" },
+  { value: "Pacific/Guam", label: "(GMT+10:00) Guam, Port Moresby" },
+  { value: "Pacific/Noumea", label: "(GMT+11:00) Magadan, Solomon Islands" },
+  { value: "Pacific/Auckland", label: "(GMT+12:00) Auckland, Wellington" },
+  { value: "Pacific/Fiji", label: "(GMT+12:00) Fiji, Marshall Islands" },
+  { value: "Pacific/Tongatapu", label: "(GMT+13:00) Nuku'alofa, Tongatapu" },
 ];
 
 // Duration options
@@ -251,7 +288,8 @@ export const MeetingModal = ({ open, onOpenChange, meeting, onSuccess }: Meeting
           subject: formData.subject,
           attendees,
           startTime: buildISODateTime(startDate, startTime),
-          endTime: buildEndISODateTime(startDate, startTime, parseInt(duration))
+          endTime: buildEndISODateTime(startDate, startTime, parseInt(duration)),
+          timezone
         }
       });
 

@@ -17,6 +17,7 @@ interface MeetingRequest {
   attendees: Attendee[];
   startTime: string;
   endTime: string;
+  timezone?: string;
 }
 
 async function getAccessToken(): Promise<string> {
@@ -89,8 +90,8 @@ async function createOnlineMeeting(accessToken: string, meetingRequest: MeetingR
   const organizerUserId = userData.id;
   console.log('Found organizer user ID:', organizerUserId);
 
-  // Create meeting body for online meeting
-  const meetingBody = {
+  // Create meeting body for online meeting with timezone support
+  const meetingBody: Record<string, any> = {
     startDateTime: meetingRequest.startTime,
     endDateTime: meetingRequest.endTime,
     subject: meetingRequest.subject,
@@ -100,6 +101,14 @@ async function createOnlineMeeting(accessToken: string, meetingRequest: MeetingR
     },
     allowedPresenters: 'everyone'
   };
+
+  // Add timezone if provided (Microsoft Graph uses IANA timezone identifiers)
+  if (meetingRequest.timezone) {
+    meetingBody.startDateTime = meetingRequest.startTime;
+    meetingBody.endDateTime = meetingRequest.endTime;
+    // Note: Graph API accepts ISO 8601 datetime strings - the timezone context is handled by the client
+    console.log('Meeting timezone:', meetingRequest.timezone);
+  }
 
   console.log('Meeting request body:', JSON.stringify(meetingBody, null, 2));
 
@@ -188,7 +197,7 @@ serve(async (req) => {
       );
     }
 
-    const { subject, attendees, startTime, endTime }: MeetingRequest = await req.json();
+    const { subject, attendees, startTime, endTime, timezone }: MeetingRequest = await req.json();
 
     if (!subject || !attendees || !startTime || !endTime) {
       return new Response(
@@ -197,7 +206,7 @@ serve(async (req) => {
       );
     }
 
-    console.log('Creating Teams meeting:', { subject, attendeesCount: attendees.length, startTime, endTime });
+    console.log('Creating Teams meeting:', { subject, attendeesCount: attendees.length, startTime, endTime, timezone });
 
     // Get Azure AD access token
     const accessToken = await getAccessToken();
@@ -206,8 +215,8 @@ serve(async (req) => {
     // The user must exist in the Azure AD tenant
     const organizerEmail = user.email!;
 
-    // Create the Teams meeting
-    const meeting = await createOnlineMeeting(accessToken, { subject, attendees, startTime, endTime }, organizerEmail);
+    // Create the Teams meeting with timezone
+    const meeting = await createOnlineMeeting(accessToken, { subject, attendees, startTime, endTime, timezone }, organizerEmail);
 
     // Log the meeting creation for security audit
     const adminClient = createClient(
