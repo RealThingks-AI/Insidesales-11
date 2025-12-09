@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { toZonedTime, fromZonedTime, formatInTimeZone } from "date-fns-tz";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -135,6 +136,9 @@ export const MeetingModal = ({ open, onOpenChange, meeting, onSuccess }: Meeting
   const [startTime, setStartTime] = useState("09:00");
   const [duration, setDuration] = useState("60"); // Duration in minutes
   
+  // Store the UTC reference time for timezone conversions
+  const [utcReferenceTime, setUtcReferenceTime] = useState<Date | null>(null);
+  
   const [formData, setFormData] = useState({
     subject: "",
     description: "",
@@ -143,6 +147,25 @@ export const MeetingModal = ({ open, onOpenChange, meeting, onSuccess }: Meeting
     contact_id: "",
     status: "scheduled"
   });
+
+  // Handle timezone change - convert the displayed time to the new timezone
+  const handleTimezoneChange = (newTimezone: string) => {
+    if (startDate && startTime) {
+      // Create a datetime from current date and time in the old timezone
+      const [h, m] = startTime.split(":").map(Number);
+      const dateInOldTz = new Date(startDate);
+      dateInOldTz.setHours(h, m, 0, 0);
+      
+      // Convert from old timezone to UTC, then to new timezone
+      const utcTime = fromZonedTime(dateInOldTz, timezone);
+      const timeInNewTz = toZonedTime(utcTime, newTimezone);
+      
+      // Update the displayed date and time
+      setStartDate(timeInNewTz);
+      setStartTime(format(timeInNewTz, "HH:mm"));
+    }
+    setTimezone(newTimezone);
+  };
 
   // Get current date/time for validation
   const now = new Date();
@@ -241,18 +264,23 @@ export const MeetingModal = ({ open, onOpenChange, meeting, onSuccess }: Meeting
     }
   };
 
+  // Build ISO datetime in the selected timezone context
   const buildISODateTime = (date: Date | undefined, time: string): string => {
     if (!date) return "";
     const [h, m] = time.split(":").map(Number);
     const dt = new Date(date);
     dt.setHours(h, m, 0, 0);
-    return dt.toISOString();
+    // Convert from selected timezone to UTC for storage
+    const utcTime = fromZonedTime(dt, timezone);
+    return utcTime.toISOString();
   };
 
   const buildEndISODateTime = (date: Date | undefined, time: string, durationMinutes: number): string => {
     if (!date) return "";
     const endDateTime = calculateEndDateTime(date, time, durationMinutes);
-    return endDateTime.toISOString();
+    // Convert from selected timezone to UTC for storage
+    const utcTime = fromZonedTime(endDateTime, timezone);
+    return utcTime.toISOString();
   };
 
   const createTeamsMeeting = async () => {
@@ -399,7 +427,7 @@ export const MeetingModal = ({ open, onOpenChange, meeting, onSuccess }: Meeting
           {/* Timezone Selection */}
           <div className="space-y-2">
             <Label>Time Zone</Label>
-            <Select value={timezone} onValueChange={setTimezone}>
+            <Select value={timezone} onValueChange={handleTimezoneChange}>
               <SelectTrigger className="w-80">
                 <SelectValue placeholder="Select timezone" />
               </SelectTrigger>
