@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Search, Video, Trash2, Edit, Calendar, ArrowUpDown, ArrowUp, ArrowDown, List, CalendarDays } from "lucide-react";
+import { Plus, Search, Video, Trash2, Edit, Calendar, ArrowUpDown, ArrowUp, ArrowDown, List, CalendarDays, CheckCircle2, AlertCircle, UserX, CalendarClock } from "lucide-react";
 import { MeetingsCalendarView } from "@/components/meetings/MeetingsCalendarView";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MeetingModal } from "@/components/MeetingModal";
@@ -30,6 +30,8 @@ interface Meeting {
   created_by?: string | null;
   created_at?: string | null;
   status: string;
+  outcome?: string | null;
+  notes?: string | null;
   lead_name?: string | null;
   contact_name?: string | null;
 }
@@ -231,6 +233,27 @@ const Meetings = () => {
     }
     return <Badge variant="default">Scheduled</Badge>;
   };
+
+  const getOutcomeBadge = (outcome: string | null) => {
+    if (!outcome) return <span className="text-muted-foreground">—</span>;
+    
+    const outcomeConfig: Record<string, { label: string; icon: React.ReactNode; className: string }> = {
+      successful: { label: "Successful", icon: <CheckCircle2 className="h-3 w-3" />, className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" },
+      follow_up_needed: { label: "Follow-up", icon: <AlertCircle className="h-3 w-3" />, className: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200" },
+      no_show: { label: "No-show", icon: <UserX className="h-3 w-3" />, className: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" },
+      rescheduled: { label: "Rescheduled", icon: <CalendarClock className="h-3 w-3" />, className: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" },
+    };
+    
+    const config = outcomeConfig[outcome];
+    if (!config) return <span className="text-muted-foreground">—</span>;
+    
+    return (
+      <Badge variant="outline" className={`gap-1 ${config.className}`}>
+        {config.icon}
+        {config.label}
+      </Badge>
+    );
+  };
   if (loading) {
     return <div className="flex items-center justify-center h-64">
         <div className="text-center">
@@ -385,6 +408,7 @@ const Meetings = () => {
                         Status {getSortIcon('status')}
                       </button>
                     </TableHead>
+                    <TableHead>Outcome</TableHead>
                     <TableHead>Join URL</TableHead>
                     <TableHead className="w-[100px]">Actions</TableHead>
                   </TableRow>
@@ -392,7 +416,7 @@ const Meetings = () => {
                 <TableBody>
                   {filteredMeetings.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                         <Calendar className="h-12 w-12 mx-auto mb-2 opacity-50" />
                         No meetings found
                       </TableCell>
@@ -420,6 +444,7 @@ const Meetings = () => {
                           {!meeting.lead_name && !meeting.contact_name && <span className="text-muted-foreground">—</span>}
                         </TableCell>
                         <TableCell>{getStatusBadge(meeting.status, meeting.start_time)}</TableCell>
+                        <TableCell>{getOutcomeBadge(meeting.outcome || null)}</TableCell>
                         <TableCell>
                           {meeting.join_url ? (
                             <a href={meeting.join_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1">

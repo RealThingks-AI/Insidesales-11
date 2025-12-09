@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { toZonedTime, fromZonedTime, formatInTimeZone } from "date-fns-tz";
+import { toZonedTime, fromZonedTime } from "date-fns-tz";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Video, Loader2, CalendarIcon, Clock, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MeetingOutcomeSelect } from "@/components/meetings/MeetingOutcomeSelect";
+import { MeetingNotesSection } from "@/components/meetings/MeetingNotesSection";
+import { MeetingFollowUpsSection } from "@/components/meetings/MeetingFollowUpsSection";
+import { MeetingReminderSettings } from "@/components/meetings/MeetingReminderSettings";
 // Comprehensive timezones (40 options, ordered by GMT offset)
 const TIMEZONES = [
   { value: "Pacific/Midway", label: "(GMT-11:00) Midway Island, Samoa" },
@@ -101,6 +105,8 @@ interface Meeting {
   lead_id?: string | null;
   contact_id?: string | null;
   status: string;
+  outcome?: string | null;
+  notes?: string | null;
 }
 
 interface Lead {
@@ -146,7 +152,9 @@ export const MeetingModal = ({ open, onOpenChange, meeting, onSuccess }: Meeting
     join_url: "",
     lead_id: "",
     contact_id: "",
-    status: "scheduled"
+    status: "scheduled",
+    outcome: "",
+    notes: ""
   });
 
   // Handle timezone change - convert the displayed time to the new timezone
@@ -226,7 +234,9 @@ export const MeetingModal = ({ open, onOpenChange, meeting, onSuccess }: Meeting
           join_url: meeting.join_url || "",
           lead_id: meeting.lead_id || "",
           contact_id: meeting.contact_id || "",
-          status: meeting.status || "scheduled"
+          status: meeting.status || "scheduled",
+          outcome: meeting.outcome || "",
+          notes: meeting.notes || ""
         });
       } else {
         // Set default start time to next hour rounded to 15 min
@@ -246,7 +256,9 @@ export const MeetingModal = ({ open, onOpenChange, meeting, onSuccess }: Meeting
           join_url: "",
           lead_id: "",
           contact_id: "",
-          status: "scheduled"
+          status: "scheduled",
+          outcome: "",
+          notes: ""
         });
       }
     }
@@ -371,6 +383,8 @@ export const MeetingModal = ({ open, onOpenChange, meeting, onSuccess }: Meeting
         lead_id: formData.lead_id || null,
         contact_id: formData.contact_id || null,
         status: formData.status,
+        outcome: formData.outcome || null,
+        notes: formData.notes || null,
         created_by: user?.id
       };
 
@@ -462,178 +476,212 @@ export const MeetingModal = ({ open, onOpenChange, meeting, onSuccess }: Meeting
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[72vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{meeting ? "Edit Meeting" : "New Meeting"}</DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="subject">Subject *</Label>
-            <Input
-              id="subject"
-              value={formData.subject}
-              onChange={(e) => setFormData(prev => ({ ...prev, subject: e.target.value }))}
-              placeholder="Meeting subject"
-              required
-            />
-          </div>
+          <Tabs defaultValue="details" className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="details">Details</TabsTrigger>
+              <TabsTrigger value="notes">Notes & Follow-ups</TabsTrigger>
+              <TabsTrigger value="reminders">Reminders</TabsTrigger>
+            </TabsList>
 
-          {/* Timezone Selection */}
-          <div className="space-y-2">
-            <Label>Time Zone</Label>
-            <Select value={timezone} onValueChange={handleTimezoneChange}>
-              <SelectTrigger className="w-80">
-                <SelectValue placeholder="Select timezone" />
-              </SelectTrigger>
-              <SelectContent className="max-h-60">
-                {TIMEZONES.map((tz) => (
-                  <SelectItem key={tz.value} value={tz.value}>
-                    {tz.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+            <TabsContent value="details" className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label htmlFor="subject">Subject *</Label>
+                <Input
+                  id="subject"
+                  value={formData.subject}
+                  onChange={(e) => setFormData(prev => ({ ...prev, subject: e.target.value }))}
+                  placeholder="Meeting subject"
+                  required
+                />
+              </div>
 
-          {/* Start Date, Time & Duration */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label>Start Date *</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !startDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {startDate ? format(startDate, "dd-MMM-yyyy") : "Pick a date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 z-50" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={startDate}
-                    onSelect={setStartDate}
-                    disabled={(date) => date < todayInTimezone}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div className="space-y-2">
-              <Label>Start Time *</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start text-left font-normal"
-                  >
-                    <Clock className="mr-2 h-4 w-4" />
-                    {formatDisplayTime(startTime)}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-48 p-0 z-50 max-h-60 overflow-y-auto" align="start">
-                  <div className="p-2 space-y-1">
-                    {availableStartTimeSlots.length > 0 ? (
-                      availableStartTimeSlots.map((slot) => (
-                        <Button
-                          key={slot}
-                          variant={startTime === slot ? "default" : "ghost"}
-                          className="w-full justify-start text-sm"
-                          onClick={() => setStartTime(slot)}
-                        >
-                          {formatDisplayTime(slot)}
-                        </Button>
-                      ))
-                    ) : (
-                      <p className="text-sm text-muted-foreground p-2">No available times today</p>
-                    )}
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div className="space-y-2">
-              <Label>Duration *</Label>
-              <Select value={duration} onValueChange={setDuration}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select duration" />
-                </SelectTrigger>
-                <SelectContent>
-                  {DURATION_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+              {/* Timezone Selection */}
+              <div className="space-y-2">
+                <Label>Time Zone</Label>
+                <Select value={timezone} onValueChange={handleTimezoneChange}>
+                  <SelectTrigger className="w-80">
+                    <SelectValue placeholder="Select timezone" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60">
+                    {TIMEZONES.map((tz) => (
+                      <SelectItem key={tz.value} value={tz.value}>
+                        {tz.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="lead_id">Link to Lead</Label>
-              <Select
-                value={formData.lead_id}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, lead_id: value === "none" ? "" : value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a lead (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {leads.map((lead) => (
-                    <SelectItem key={lead.id} value={lead.id}>
-                      <div className="flex flex-col">
-                        <span>{lead.lead_name}</span>
-                        {lead.email && <span className="text-xs text-muted-foreground">{lead.email}</span>}
+              {/* Start Date, Time & Duration */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Start Date *</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !startDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {startDate ? format(startDate, "dd-MMM-yyyy") : "Pick a date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 z-50" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={startDate}
+                        onSelect={setStartDate}
+                        disabled={(date) => date < todayInTimezone}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="space-y-2">
+                  <Label>Start Time *</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal"
+                      >
+                        <Clock className="mr-2 h-4 w-4" />
+                        {formatDisplayTime(startTime)}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-48 p-0 z-50 max-h-60 overflow-y-auto" align="start">
+                      <div className="p-2 space-y-1">
+                        {availableStartTimeSlots.length > 0 ? (
+                          availableStartTimeSlots.map((slot) => (
+                            <Button
+                              key={slot}
+                              variant={startTime === slot ? "default" : "ghost"}
+                              className="w-full justify-start text-sm"
+                              onClick={() => setStartTime(slot)}
+                            >
+                              {formatDisplayTime(slot)}
+                            </Button>
+                          ))
+                        ) : (
+                          <p className="text-sm text-muted-foreground p-2">No available times today</p>
+                        )}
                       </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="space-y-2">
+                  <Label>Duration *</Label>
+                  <Select value={duration} onValueChange={setDuration}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select duration" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DURATION_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="contact_id">Link to Contact</Label>
-              <Select
-                value={formData.contact_id}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, contact_id: value === "none" ? "" : value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a contact (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {contacts.map((contact) => (
-                    <SelectItem key={contact.id} value={contact.id}>
-                      <div className="flex flex-col">
-                        <span>{contact.contact_name}</span>
-                        {contact.email && <span className="text-xs text-muted-foreground">{contact.email}</span>}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="lead_id">Link to Lead</Label>
+                  <Select
+                    value={formData.lead_id}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, lead_id: value === "none" ? "" : value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a lead (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {leads.map((lead) => (
+                        <SelectItem key={lead.id} value={lead.id}>
+                          <div className="flex flex-col">
+                            <span>{lead.lead_name}</span>
+                            {lead.email && <span className="text-xs text-muted-foreground">{lead.email}</span>}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              placeholder="Meeting description"
-              rows={3}
-            />
-          </div>
+                <div className="space-y-2">
+                  <Label htmlFor="contact_id">Link to Contact</Label>
+                  <Select
+                    value={formData.contact_id}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, contact_id: value === "none" ? "" : value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a contact (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {contacts.map((contact) => (
+                        <SelectItem key={contact.id} value={contact.id}>
+                          <div className="flex flex-col">
+                            <span>{contact.contact_name}</span>
+                            {contact.email && <span className="text-xs text-muted-foreground">{contact.email}</span>}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-          <div className="flex justify-between gap-2 pt-4">
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Meeting description"
+                  rows={3}
+                />
+              </div>
+
+              {/* Outcome - only show for existing meetings */}
+              {meeting && (
+                <MeetingOutcomeSelect
+                  value={formData.outcome}
+                  onChange={(value) => setFormData(prev => ({ ...prev, outcome: value }))}
+                />
+              )}
+            </TabsContent>
+
+            <TabsContent value="notes" className="space-y-4 mt-4">
+              <MeetingNotesSection
+                value={formData.notes}
+                onChange={(value) => setFormData(prev => ({ ...prev, notes: value }))}
+              />
+              
+              <MeetingFollowUpsSection meetingId={meeting?.id} />
+            </TabsContent>
+
+            <TabsContent value="reminders" className="space-y-4 mt-4">
+              <MeetingReminderSettings meetingId={meeting?.id} />
+              <p className="text-sm text-muted-foreground">
+                Reminders will be sent as in-app notifications before the meeting starts.
+              </p>
+            </TabsContent>
+          </Tabs>
+
+          <div className="flex justify-between gap-2 pt-4 border-t">
             <div>
               {meeting && meeting.join_url && (
                 <Button 

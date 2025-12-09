@@ -563,6 +563,100 @@ export type Database = {
           },
         ]
       }
+      meeting_follow_ups: {
+        Row: {
+          assigned_to: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          due_date: string | null
+          id: string
+          meeting_id: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          meeting_id: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          meeting_id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_follow_ups_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meeting_reminders: {
+        Row: {
+          created_at: string
+          id: string
+          meeting_id: string
+          remind_15min: boolean
+          remind_1day: boolean
+          remind_1hr: boolean
+          sent_15min: boolean
+          sent_1day: boolean
+          sent_1hr: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          meeting_id: string
+          remind_15min?: boolean
+          remind_1day?: boolean
+          remind_1hr?: boolean
+          sent_15min?: boolean
+          sent_1day?: boolean
+          sent_1hr?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          meeting_id?: string
+          remind_15min?: boolean
+          remind_1day?: boolean
+          remind_1hr?: boolean
+          sent_15min?: boolean
+          sent_1day?: boolean
+          sent_1hr?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_reminders_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: true
+            referencedRelation: "meetings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meetings: {
         Row: {
           attendees: Json | null
@@ -574,6 +668,8 @@ export type Database = {
           id: string
           join_url: string | null
           lead_id: string | null
+          notes: string | null
+          outcome: string | null
           start_time: string
           status: string
           subject: string
@@ -589,6 +685,8 @@ export type Database = {
           id?: string
           join_url?: string | null
           lead_id?: string | null
+          notes?: string | null
+          outcome?: string | null
           start_time: string
           status?: string
           subject: string
@@ -604,6 +702,8 @@ export type Database = {
           id?: string
           join_url?: string | null
           lead_id?: string | null
+          notes?: string | null
+          outcome?: string | null
           start_time?: string
           status?: string
           subject?: string
