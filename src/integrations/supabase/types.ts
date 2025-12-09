@@ -326,6 +326,51 @@ export type Database = {
           },
         ]
       }
+      crm_custom_fields: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          display_order: number | null
+          entity_type: string
+          field_label: string
+          field_name: string
+          field_options: Json | null
+          field_type: string
+          id: string
+          is_required: boolean | null
+          is_visible: boolean | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          display_order?: number | null
+          entity_type: string
+          field_label: string
+          field_name: string
+          field_options?: Json | null
+          field_type?: string
+          id?: string
+          is_required?: boolean | null
+          is_visible?: boolean | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          display_order?: number | null
+          entity_type?: string
+          field_label?: string
+          field_name?: string
+          field_options?: Json | null
+          field_type?: string
+          id?: string
+          is_required?: boolean | null
+          is_visible?: boolean | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       dashboard_preferences: {
         Row: {
           card_order: Json | null
@@ -577,6 +622,72 @@ export type Database = {
         }
         Relationships: []
       }
+      import_export_settings: {
+        Row: {
+          created_at: string
+          default_values: Json | null
+          entity_type: string
+          field_mappings: Json | null
+          id: string
+          skip_duplicates: boolean | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          default_values?: Json | null
+          entity_type: string
+          field_mappings?: Json | null
+          id?: string
+          skip_duplicates?: boolean | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          default_values?: Json | null
+          entity_type?: string
+          field_mappings?: Json | null
+          id?: string
+          skip_duplicates?: boolean | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      integration_settings: {
+        Row: {
+          config: Json | null
+          created_at: string
+          id: string
+          integration_name: string
+          is_enabled: boolean | null
+          last_sync_at: string | null
+          sync_status: string | null
+          updated_at: string
+        }
+        Insert: {
+          config?: Json | null
+          created_at?: string
+          id?: string
+          integration_name: string
+          is_enabled?: boolean | null
+          last_sync_at?: string | null
+          sync_status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          config?: Json | null
+          created_at?: string
+          id?: string
+          integration_name?: string
+          is_enabled?: boolean | null
+          last_sync_at?: string | null
+          sync_status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       keep_alive: {
         Row: {
           "Able to read DB": string | null
@@ -627,6 +738,42 @@ export type Database = {
           lead_id?: string
           next_action?: string
           status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      lead_statuses: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean | null
+          is_converted_status: boolean | null
+          status_color: string | null
+          status_name: string
+          status_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_converted_status?: boolean | null
+          status_color?: string | null
+          status_name: string
+          status_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_converted_status?: boolean | null
+          status_color?: string | null
+          status_name?: string
+          status_order?: number
           updated_at?: string
         }
         Relationships: []
@@ -868,6 +1015,51 @@ export type Database = {
           },
         ]
       }
+      notification_preferences: {
+        Row: {
+          created_at: string
+          deal_updates: boolean | null
+          email_notifications: boolean | null
+          id: string
+          in_app_notifications: boolean | null
+          lead_assigned: boolean | null
+          meeting_reminders: boolean | null
+          push_notifications: boolean | null
+          task_reminders: boolean | null
+          updated_at: string
+          user_id: string
+          weekly_digest: boolean | null
+        }
+        Insert: {
+          created_at?: string
+          deal_updates?: boolean | null
+          email_notifications?: boolean | null
+          id?: string
+          in_app_notifications?: boolean | null
+          lead_assigned?: boolean | null
+          meeting_reminders?: boolean | null
+          push_notifications?: boolean | null
+          task_reminders?: boolean | null
+          updated_at?: string
+          user_id: string
+          weekly_digest?: boolean | null
+        }
+        Update: {
+          created_at?: string
+          deal_updates?: boolean | null
+          email_notifications?: boolean | null
+          id?: string
+          in_app_notifications?: boolean | null
+          lead_assigned?: boolean | null
+          meeting_reminders?: boolean | null
+          push_notifications?: boolean | null
+          task_reminders?: boolean | null
+          updated_at?: string
+          user_id?: string
+          weekly_digest?: boolean | null
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           action_item_id: string | null
@@ -940,26 +1132,80 @@ export type Database = {
         }
         Relationships: []
       }
+      pipeline_stages: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean | null
+          is_lost_stage: boolean | null
+          is_won_stage: boolean | null
+          stage_color: string | null
+          stage_name: string
+          stage_order: number
+          stage_probability: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_lost_stage?: boolean | null
+          is_won_stage?: boolean | null
+          stage_color?: string | null
+          stage_name: string
+          stage_order?: number
+          stage_probability?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_lost_stage?: boolean | null
+          is_won_stage?: boolean | null
+          stage_color?: string | null
+          stage_name?: string
+          stage_order?: number
+          stage_probability?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
+          avatar_url: string | null
+          bio: string | null
           created_at: string | null
           "Email ID": string | null
           full_name: string | null
           id: string
+          phone: string | null
+          timezone: string | null
           updated_at: string | null
         }
         Insert: {
+          avatar_url?: string | null
+          bio?: string | null
           created_at?: string | null
           "Email ID"?: string | null
           full_name?: string | null
           id: string
+          phone?: string | null
+          timezone?: string | null
           updated_at?: string | null
         }
         Update: {
+          avatar_url?: string | null
+          bio?: string | null
           created_at?: string | null
           "Email ID"?: string | null
           full_name?: string | null
           id?: string
+          phone?: string | null
+          timezone?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -1182,22 +1428,40 @@ export type Database = {
       user_preferences: {
         Row: {
           created_at: string | null
+          currency: string | null
+          date_format: string | null
+          default_module: string | null
           id: string
+          language: string | null
           theme: string | null
+          time_format: string | null
+          timezone: string | null
           updated_at: string | null
           user_id: string
         }
         Insert: {
           created_at?: string | null
+          currency?: string | null
+          date_format?: string | null
+          default_module?: string | null
           id?: string
+          language?: string | null
           theme?: string | null
+          time_format?: string | null
+          timezone?: string | null
           updated_at?: string | null
           user_id: string
         }
         Update: {
           created_at?: string | null
+          currency?: string | null
+          date_format?: string | null
+          default_module?: string | null
           id?: string
+          language?: string | null
           theme?: string | null
+          time_format?: string | null
+          timezone?: string | null
           updated_at?: string | null
           user_id?: string
         }
@@ -1223,6 +1487,45 @@ export type Database = {
           assigned_by?: string | null
           id?: string
           role?: Database["public"]["Enums"]["user_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_sessions: {
+        Row: {
+          created_at: string
+          device_info: Json | null
+          expires_at: string | null
+          id: string
+          ip_address: unknown
+          is_active: boolean | null
+          last_active_at: string | null
+          session_token: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_info?: Json | null
+          expires_at?: string | null
+          id?: string
+          ip_address?: unknown
+          is_active?: boolean | null
+          last_active_at?: string | null
+          session_token: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_info?: Json | null
+          expires_at?: string | null
+          id?: string
+          ip_address?: unknown
+          is_active?: boolean | null
+          last_active_at?: string | null
+          session_token?: string
+          user_agent?: string | null
           user_id?: string
         }
         Relationships: []
