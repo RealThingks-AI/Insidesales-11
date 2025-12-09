@@ -14,22 +14,78 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_activities: {
+        Row: {
+          account_id: string
+          activity_date: string
+          activity_type: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          duration_minutes: number | null
+          id: string
+          outcome: string | null
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          activity_date?: string
+          activity_type: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          outcome?: string | null
+          subject: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          activity_date?: string
+          activity_type?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          outcome?: string | null
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_activities_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       accounts: {
         Row: {
           account_owner: string | null
           company_name: string
           company_type: string | null
+          contact_count: number | null
           country: string | null
           created_at: string | null
           created_by: string | null
+          deal_count: number | null
           id: string
           industry: string | null
+          last_activity_date: string | null
           modified_by: string | null
           notes: string | null
           phone: string | null
           region: string | null
+          score: number | null
+          segment: string | null
           status: string | null
           tags: string[] | null
+          total_revenue: number | null
           updated_at: string | null
           website: string | null
         }
@@ -37,17 +93,23 @@ export type Database = {
           account_owner?: string | null
           company_name: string
           company_type?: string | null
+          contact_count?: number | null
           country?: string | null
           created_at?: string | null
           created_by?: string | null
+          deal_count?: number | null
           id?: string
           industry?: string | null
+          last_activity_date?: string | null
           modified_by?: string | null
           notes?: string | null
           phone?: string | null
           region?: string | null
+          score?: number | null
+          segment?: string | null
           status?: string | null
           tags?: string[] | null
+          total_revenue?: number | null
           updated_at?: string | null
           website?: string | null
         }
@@ -55,17 +117,23 @@ export type Database = {
           account_owner?: string | null
           company_name?: string
           company_type?: string | null
+          contact_count?: number | null
           country?: string | null
           created_at?: string | null
           created_by?: string | null
+          deal_count?: number | null
           id?: string
           industry?: string | null
+          last_activity_date?: string | null
           modified_by?: string | null
           notes?: string | null
           phone?: string | null
           region?: string | null
+          score?: number | null
+          segment?: string | null
           status?: string | null
           tags?: string[] | null
+          total_revenue?: number | null
           updated_at?: string | null
           website?: string | null
         }
@@ -968,6 +1036,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_account_score: {
+        Args: { p_account_id: string }
+        Returns: number
+      }
       get_user_role: { Args: { p_user_id: string }; Returns: string }
       is_current_user_admin: { Args: never; Returns: boolean }
       is_current_user_admin_by_metadata: { Args: never; Returns: boolean }
@@ -987,6 +1059,10 @@ export type Database = {
           p_resource_id?: string
           p_resource_type: string
         }
+        Returns: undefined
+      }
+      update_account_stats: {
+        Args: { p_account_id: string }
         Returns: undefined
       }
       update_user_role: {

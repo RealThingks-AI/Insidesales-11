@@ -10,12 +10,14 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Search, Edit, Trash2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, ExternalLink, X, Mail } from "lucide-react";
+import { Search, Edit, Trash2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, ExternalLink, X, Mail, Eye } from "lucide-react";
 import { AccountModal } from "./AccountModal";
 import { AccountColumnCustomizer, AccountColumnConfig } from "./AccountColumnCustomizer";
 import { AccountStatusFilter } from "./AccountStatusFilter";
 import { AccountDeleteConfirmDialog } from "./AccountDeleteConfirmDialog";
 import { SendEmailModal, EmailRecipient } from "./SendEmailModal";
+import { AccountDetailModal } from "./accounts/AccountDetailModal";
+import { AccountScoreBadge, AccountSegmentBadge } from "./accounts/AccountScoreBadge";
 
 export interface Account {
   id: string;
@@ -34,6 +36,8 @@ export interface Account {
   updated_at?: string;
   created_by?: string;
   modified_by?: string;
+  score?: number;
+  segment?: string;
 }
 
 const defaultColumns: AccountColumnConfig[] = [
@@ -86,6 +90,8 @@ const AccountTable = ({
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [emailRecipient, setEmailRecipient] = useState<EmailRecipient | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [viewingAccount, setViewingAccount] = useState<Account | null>(null);
 
   useEffect(() => {
     fetchAccounts();
