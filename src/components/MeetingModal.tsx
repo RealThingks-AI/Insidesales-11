@@ -167,22 +167,23 @@ export const MeetingModal = ({ open, onOpenChange, meeting, onSuccess }: Meeting
     setTimezone(newTimezone);
   };
 
-  // Get current date/time for validation
+  // Get current date/time for validation in selected timezone
   const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const nowInTimezone = toZonedTime(now, timezone);
+  const todayInTimezone = new Date(nowInTimezone.getFullYear(), nowInTimezone.getMonth(), nowInTimezone.getDate());
 
-  // Filter time slots to exclude past times for today
+  // Filter time slots to exclude past times for today in the selected timezone
   const getAvailableTimeSlots = (selectedDate: Date | undefined) => {
     if (!selectedDate) return TIME_SLOTS;
     
     const selectedDateOnly = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
-    const isToday = selectedDateOnly.getTime() === today.getTime();
+    const isToday = selectedDateOnly.getTime() === todayInTimezone.getTime();
     
     if (!isToday) return TIME_SLOTS;
     
-    // For today, filter out past times
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
+    // For today, filter out past times based on the selected timezone
+    const currentHour = nowInTimezone.getHours();
+    const currentMinute = nowInTimezone.getMinutes();
     
     return TIME_SLOTS.filter(slot => {
       const [h, m] = slot.split(":").map(Number);
@@ -192,7 +193,7 @@ export const MeetingModal = ({ open, onOpenChange, meeting, onSuccess }: Meeting
     });
   };
 
-  const availableStartTimeSlots = useMemo(() => getAvailableTimeSlots(startDate), [startDate, now]);
+  const availableStartTimeSlots = useMemo(() => getAvailableTimeSlots(startDate), [startDate, timezone, nowInTimezone]);
 
   // Calculate end time based on start time and duration
   const calculateEndDateTime = (start: Date, time: string, durationMinutes: number) => {
@@ -463,7 +464,7 @@ export const MeetingModal = ({ open, onOpenChange, meeting, onSuccess }: Meeting
                     mode="single"
                     selected={startDate}
                     onSelect={setStartDate}
-                    disabled={(date) => date < today}
+                    disabled={(date) => date < todayInTimezone}
                     initialFocus
                     className="pointer-events-auto"
                   />
