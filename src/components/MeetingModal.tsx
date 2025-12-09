@@ -520,44 +520,52 @@ export const MeetingModal = ({ open, onOpenChange, meeting, onSuccess }: Meeting
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="lead_id">Link to Lead</Label>
-            <Select
-              value={formData.lead_id}
-              onValueChange={(value) => setFormData(prev => ({ ...prev, lead_id: value === "none" ? "" : value }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select a lead (optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">None</SelectItem>
-                {leads.map((lead) => (
-                  <SelectItem key={lead.id} value={lead.id}>
-                    {lead.lead_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="lead_id">Link to Lead</Label>
+              <Select
+                value={formData.lead_id}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, lead_id: value === "none" ? "" : value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a lead (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {leads.map((lead) => (
+                    <SelectItem key={lead.id} value={lead.id}>
+                      <div className="flex flex-col">
+                        <span>{lead.lead_name}</span>
+                        {lead.email && <span className="text-xs text-muted-foreground">{lead.email}</span>}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="contact_id">Link to Contact</Label>
-            <Select
-              value={formData.contact_id}
-              onValueChange={(value) => setFormData(prev => ({ ...prev, contact_id: value === "none" ? "" : value }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select a contact (optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">None</SelectItem>
-                {contacts.map((contact) => (
-                  <SelectItem key={contact.id} value={contact.id}>
-                    {contact.contact_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="space-y-2">
+              <Label htmlFor="contact_id">Link to Contact</Label>
+              <Select
+                value={formData.contact_id}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, contact_id: value === "none" ? "" : value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a contact (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {contacts.map((contact) => (
+                    <SelectItem key={contact.id} value={contact.id}>
+                      <div className="flex flex-col">
+                        <span>{contact.contact_name}</span>
+                        {contact.email && <span className="text-xs text-muted-foreground">{contact.email}</span>}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="space-y-2">
