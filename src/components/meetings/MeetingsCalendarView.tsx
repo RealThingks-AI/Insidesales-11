@@ -159,6 +159,17 @@ export const MeetingsCalendarView = ({ meetings, onMeetingClick, onMeetingUpdate
     
     if (!draggedMeeting) return;
 
+    // Prevent rescheduling cancelled or completed meetings
+    if (draggedMeeting.status === 'cancelled' || draggedMeeting.status === 'completed') {
+      toast({
+        title: "Cannot reschedule",
+        description: `This meeting is ${draggedMeeting.status} and cannot be rescheduled.`,
+        variant: "destructive",
+      });
+      handleDragEnd();
+      return;
+    }
+
     const originalStart = new Date(draggedMeeting.start_time);
     const originalEnd = new Date(draggedMeeting.end_time);
     const duration = differenceInMinutes(originalEnd, originalStart);
@@ -175,6 +186,18 @@ export const MeetingsCalendarView = ({ meetings, onMeetingClick, onMeetingUpdate
     }
 
     const newEnd = new Date(newStart.getTime() + duration * 60 * 1000);
+
+    // Prevent rescheduling to past date/time
+    const now = new Date();
+    if (newStart < now) {
+      toast({
+        title: "Cannot reschedule",
+        description: "You cannot reschedule a meeting to a past date or time.",
+        variant: "destructive",
+      });
+      handleDragEnd();
+      return;
+    }
 
     // Show confirmation dialog instead of directly updating
     setPendingReschedule({
