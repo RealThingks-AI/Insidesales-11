@@ -579,39 +579,31 @@ export const MeetingModal = ({ open, onOpenChange, meeting, onSuccess }: Meeting
             />
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="join_url">Teams Meeting Link</Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={createTeamsMeeting}
-                disabled={creatingTeamsMeeting}
-                className="gap-2"
-              >
-                {creatingTeamsMeeting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Video className="h-4 w-4" />
-                )}
-                Create Teams Meeting
-              </Button>
-            </div>
-            <Input
-              id="join_url"
-              value={formData.join_url}
-              onChange={(e) => setFormData(prev => ({ ...prev, join_url: e.target.value }))}
-              placeholder="https://teams.microsoft.com/..."
-            />
-          </div>
-
           <div className="flex justify-end gap-2 pt-4">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? "Saving..." : meeting ? "Update" : "Create"}
+            <Button 
+              type="submit" 
+              disabled={loading || creatingTeamsMeeting}
+              onClick={async (e) => {
+                e.preventDefault();
+                // First create Teams meeting, then submit the form
+                if (!formData.join_url) {
+                  await createTeamsMeeting();
+                }
+                // Trigger form submit after Teams meeting is created
+                const form = e.currentTarget.closest('form');
+                if (form) form.requestSubmit();
+              }}
+              className="gap-2"
+            >
+              {(loading || creatingTeamsMeeting) ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Video className="h-4 w-4" />
+              )}
+              {loading ? "Saving..." : creatingTeamsMeeting ? "Creating Teams Meeting..." : meeting ? "Update" : "Create Meeting"}
             </Button>
           </div>
         </form>
