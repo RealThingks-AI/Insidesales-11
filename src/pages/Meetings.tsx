@@ -346,10 +346,7 @@ const Meetings = () => {
                       <TableCell className="font-medium">{meeting.subject}</TableCell>
                       <TableCell>
                         <div className="text-sm">
-                          <div>{format(new Date(meeting.start_time), 'MMM dd, yyyy')}</div>
-                          <div className="text-muted-foreground">
-                            {format(new Date(meeting.start_time), 'HH:mm')} - {format(new Date(meeting.end_time), 'HH:mm')}
-                          </div>
+                          {format(new Date(meeting.start_time), 'MMM dd, yyyy')} <span className="text-muted-foreground">{format(new Date(meeting.start_time), 'HH:mm')} - {format(new Date(meeting.end_time), 'HH:mm')}</span>
                         </div>
                       </TableCell>
                       <TableCell>
