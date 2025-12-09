@@ -330,7 +330,9 @@ export const MeetingModal = ({ open, onOpenChange, meeting, onSuccess }: Meeting
           title: "Teams Meeting Created",
           description: "Meeting link has been generated",
         });
+        return data.meeting.joinUrl; // Return the join URL for immediate use
       }
+      return null;
     } catch (error: any) {
       console.error('Error creating Teams meeting:', error);
       toast({
@@ -338,12 +340,13 @@ export const MeetingModal = ({ open, onOpenChange, meeting, onSuccess }: Meeting
         description: error.message || "Failed to create Teams meeting",
         variant: "destructive",
       });
+      return null;
     } finally {
       setCreatingTeamsMeeting(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, joinUrlOverride?: string | null) => {
     e.preventDefault();
     
     if (!formData.subject || !startDate) {
@@ -362,7 +365,7 @@ export const MeetingModal = ({ open, onOpenChange, meeting, onSuccess }: Meeting
         description: formData.description || null,
         start_time: buildISODateTime(startDate, startTime),
         end_time: buildEndISODateTime(startDate, startTime, parseInt(duration)),
-        join_url: formData.join_url || null,
+        join_url: joinUrlOverride || formData.join_url || null,
         lead_id: formData.lead_id || null,
         contact_id: formData.contact_id || null,
         status: formData.status,
@@ -584,17 +587,29 @@ export const MeetingModal = ({ open, onOpenChange, meeting, onSuccess }: Meeting
               Cancel
             </Button>
             <Button 
-              type="submit" 
+              type="button" 
               disabled={loading || creatingTeamsMeeting}
               onClick={async (e) => {
                 e.preventDefault();
-                // First create Teams meeting, then submit the form
-                if (!formData.join_url) {
-                  await createTeamsMeeting();
+                
+                if (!formData.subject || !startDate) {
+                  toast({
+                    title: "Missing fields",
+                    description: "Please fill in subject and start date",
+                    variant: "destructive",
+                  });
+                  return;
                 }
-                // Trigger form submit after Teams meeting is created
-                const form = e.currentTarget.closest('form');
-                if (form) form.requestSubmit();
+                
+                // First create Teams meeting and get the join URL
+                let joinUrl = formData.join_url;
+                if (!joinUrl) {
+                  joinUrl = await createTeamsMeeting();
+                }
+                
+                // Now submit the form with the join URL
+                const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+                await handleSubmit(fakeEvent, joinUrl);
               }}
               className="gap-2"
             >
