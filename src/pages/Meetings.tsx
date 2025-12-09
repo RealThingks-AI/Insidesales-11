@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Search, Video, Trash2, Edit, Calendar } from "lucide-react";
+import { Plus, Search, Video, Trash2, Edit, Calendar, Filter } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MeetingModal } from "@/components/MeetingModal";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
@@ -43,6 +44,7 @@ const Meetings = () => {
   const [meetingToDelete, setMeetingToDelete] = useState<string | null>(null);
   const [selectedMeetings, setSelectedMeetings] = useState<string[]>([]);
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const fetchMeetings = async () => {
     try {
@@ -82,14 +84,27 @@ const Meetings = () => {
     fetchMeetings();
   }, []);
 
+  const getMeetingStatus = (meeting: Meeting): string => {
+    if (meeting.status === 'cancelled') return 'cancelled';
+    const now = new Date();
+    const meetingStart = new Date(meeting.start_time);
+    return meetingStart < now ? 'completed' : 'scheduled';
+  };
+
   useEffect(() => {
-    const filtered = meetings.filter(meeting =>
-      meeting.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      meeting.lead_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      meeting.contact_name?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filtered = meetings.filter(meeting => {
+      const matchesSearch = 
+        meeting.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        meeting.lead_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        meeting.contact_name?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      if (statusFilter === "all") return matchesSearch;
+      
+      const meetingStatus = getMeetingStatus(meeting);
+      return matchesSearch && meetingStatus === statusFilter;
+    });
     setFilteredMeetings(filtered);
-  }, [meetings, searchTerm]);
+  }, [meetings, searchTerm, statusFilter]);
 
   const handleDelete = async (id: string) => {
     try {
@@ -214,6 +229,19 @@ const Meetings = () => {
                 className="pl-10"
               />
             </div>
+            
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[150px]">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="scheduled">Scheduled</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
             
             {/* Bulk Actions */}
             {selectedMeetings.length > 0 && (
