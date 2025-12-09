@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Search, Video, Trash2, Edit, Calendar } from "lucide-react";
 import { MeetingModal } from "@/components/MeetingModal";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -40,6 +41,8 @@ const Meetings = () => {
   const [editingMeeting, setEditingMeeting] = useState<Meeting | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [meetingToDelete, setMeetingToDelete] = useState<string | null>(null);
+  const [selectedMeetings, setSelectedMeetings] = useState<string[]>([]);
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
 
   const fetchMeetings = async () => {
     try {
@@ -62,6 +65,7 @@ const Meetings = () => {
       }));
 
       setMeetings(transformedData);
+      setSelectedMeetings([]);
     } catch (error) {
       console.error('Error fetching meetings:', error);
       toast({
@@ -111,6 +115,50 @@ const Meetings = () => {
     }
   };
 
+  const handleBulkDelete = async () => {
+    try {
+      const { error } = await supabase
+        .from('meetings')
+        .delete()
+        .in('id', selectedMeetings);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `${selectedMeetings.length} meeting(s) deleted successfully`,
+      });
+      setSelectedMeetings([]);
+      fetchMeetings();
+    } catch (error) {
+      console.error('Bulk delete error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete meetings",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedMeetings(filteredMeetings.map(m => m.id));
+    } else {
+      setSelectedMeetings([]);
+    }
+  };
+
+  const handleSelectMeeting = (meetingId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedMeetings(prev => [...prev, meetingId]);
+    } else {
+      setSelectedMeetings(prev => prev.filter(id => id !== meetingId));
+    }
+  };
+
+  const isAllSelected = filteredMeetings.length > 0 && selectedMeetings.length === filteredMeetings.length;
+  const isSomeSelected = selectedMeetings.length > 0 && selectedMeetings.length < filteredMeetings.length;
+
   const getStatusBadge = (status: string, startTime: string) => {
     const now = new Date();
     const meetingStart = new Date(startTime);
@@ -155,7 +203,7 @@ const Meetings = () => {
       {/* Main Content */}
       <div className="flex-1 min-h-0 overflow-auto p-6">
         <div className="space-y-4">
-          {/* Search */}
+          {/* Search and Bulk Actions */}
           <div className="flex items-center gap-4">
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -166,6 +214,24 @@ const Meetings = () => {
                 className="pl-10"
               />
             </div>
+            
+            {/* Bulk Actions */}
+            {selectedMeetings.length > 0 && (
+              <div className="flex items-center gap-2 bg-muted/50 px-4 py-2 rounded-lg">
+                <span className="text-sm text-muted-foreground">
+                  {selectedMeetings.length} selected
+                </span>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setShowBulkDeleteDialog(true)}
+                  className="gap-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete Selected
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Table */}
@@ -173,6 +239,18 @@ const Meetings = () => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[50px]">
+                    <Checkbox
+                      checked={isAllSelected}
+                      ref={(el) => {
+                        if (el) {
+                          (el as any).indeterminate = isSomeSelected;
+                        }
+                      }}
+                      onCheckedChange={handleSelectAll}
+                      aria-label="Select all"
+                    />
+                  </TableHead>
                   <TableHead>Subject</TableHead>
                   <TableHead>Date & Time</TableHead>
                   <TableHead>Lead/Contact</TableHead>
@@ -184,14 +262,24 @@ const Meetings = () => {
               <TableBody>
                 {filteredMeetings.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       <Calendar className="h-12 w-12 mx-auto mb-2 opacity-50" />
                       No meetings found
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredMeetings.map((meeting) => (
-                    <TableRow key={meeting.id}>
+                    <TableRow 
+                      key={meeting.id}
+                      className={selectedMeetings.includes(meeting.id) ? "bg-muted/50" : ""}
+                    >
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedMeetings.includes(meeting.id)}
+                          onCheckedChange={(checked) => handleSelectMeeting(meeting.id, !!checked)}
+                          aria-label={`Select ${meeting.subject}`}
+                        />
+                      </TableCell>
                       <TableCell className="font-medium">{meeting.subject}</TableCell>
                       <TableCell>
                         <div className="text-sm">
@@ -285,6 +373,30 @@ const Meetings = () => {
               }}
             >
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Delete Dialog */}
+      <AlertDialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedMeetings.length} Meeting(s)</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {selectedMeetings.length} selected meeting(s)? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                handleBulkDelete();
+                setShowBulkDeleteDialog(false);
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete {selectedMeetings.length} Meeting(s)
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
