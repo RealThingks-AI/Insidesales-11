@@ -181,9 +181,60 @@ export type Database = {
         }
         Relationships: []
       }
+      contact_activities: {
+        Row: {
+          activity_date: string
+          activity_type: string
+          contact_id: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          duration_minutes: number | null
+          id: string
+          outcome: string | null
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          activity_date?: string
+          activity_type: string
+          contact_id: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          outcome?: string | null
+          subject: string
+          updated_at?: string
+        }
+        Update: {
+          activity_date?: string
+          activity_type?: string
+          contact_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          outcome?: string | null
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_activities_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contacts: {
         Row: {
           account_id: string | null
+          communication_preferences: Json | null
           company_name: string | null
           contact_name: string
           contact_owner: string | null
@@ -192,18 +243,26 @@ export type Database = {
           created_time: string | null
           description: string | null
           email: string | null
+          email_clicks: number | null
+          email_opens: number | null
+          engagement_score: number | null
           id: string
           industry: string | null
+          last_contacted_at: string | null
           linkedin: string | null
           modified_by: string | null
           modified_time: string | null
           phone_no: string | null
           position: string | null
           region: string | null
+          score: number | null
+          segment: string | null
+          tags: string[] | null
           website: string | null
         }
         Insert: {
           account_id?: string | null
+          communication_preferences?: Json | null
           company_name?: string | null
           contact_name: string
           contact_owner?: string | null
@@ -212,18 +271,26 @@ export type Database = {
           created_time?: string | null
           description?: string | null
           email?: string | null
+          email_clicks?: number | null
+          email_opens?: number | null
+          engagement_score?: number | null
           id?: string
           industry?: string | null
+          last_contacted_at?: string | null
           linkedin?: string | null
           modified_by?: string | null
           modified_time?: string | null
           phone_no?: string | null
           position?: string | null
           region?: string | null
+          score?: number | null
+          segment?: string | null
+          tags?: string[] | null
           website?: string | null
         }
         Update: {
           account_id?: string | null
+          communication_preferences?: Json | null
           company_name?: string | null
           contact_name?: string
           contact_owner?: string | null
@@ -232,14 +299,21 @@ export type Database = {
           created_time?: string | null
           description?: string | null
           email?: string | null
+          email_clicks?: number | null
+          email_opens?: number | null
+          engagement_score?: number | null
           id?: string
           industry?: string | null
+          last_contacted_at?: string | null
           linkedin?: string | null
           modified_by?: string | null
           modified_time?: string | null
           phone_no?: string | null
           position?: string | null
           region?: string | null
+          score?: number | null
+          segment?: string | null
+          tags?: string[] | null
           website?: string | null
         }
         Relationships: [
@@ -1040,6 +1114,10 @@ export type Database = {
         Args: { p_account_id: string }
         Returns: number
       }
+      calculate_contact_score: {
+        Args: { p_contact_id: string }
+        Returns: number
+      }
       get_user_role: { Args: { p_user_id: string }; Returns: string }
       is_current_user_admin: { Args: never; Returns: boolean }
       is_current_user_admin_by_metadata: { Args: never; Returns: boolean }
@@ -1063,6 +1141,10 @@ export type Database = {
       }
       update_account_stats: {
         Args: { p_account_id: string }
+        Returns: undefined
+      }
+      update_contact_stats: {
+        Args: { p_contact_id: string }
         Returns: undefined
       }
       update_user_role: {
