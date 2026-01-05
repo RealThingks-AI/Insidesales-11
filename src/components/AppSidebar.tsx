@@ -5,8 +5,8 @@ import {
   BarChart3, 
   Settings,
   LogOut,
-  Pin,
-  PinOff,
+  ChevronLeft,
+  ChevronRight,
   Bell,
   Sun,
   Moon,
@@ -37,7 +37,7 @@ import {
 import { Video } from "lucide-react";
 
 const allMenuItems = [
-  { title: "Dashboard", url: "/", route: "/dashboard", icon: Home },
+  { title: "Dashboard", url: "/dashboard", route: "/dashboard", icon: Home },
   { title: "Accounts", url: "/accounts", route: "/accounts", icon: Building2 },
   { title: "Contacts", url: "/contacts", route: "/contacts", icon: Users },
   { title: "Leads", url: "/leads", route: "/leads", icon: UserPlus },
@@ -123,8 +123,8 @@ export function AppSidebar({ isFixed = false, isOpen, onToggle }: AppSidebarProp
   const sidebarOpen = isFixed ? (isOpen ?? false) : isPinned;
 
   const isActive = (path: string) => {
-    if (path === "/") {
-      return currentPath === "/";
+    if (path === "/dashboard") {
+      return currentPath === "/" || currentPath === "/dashboard";
     }
     return currentPath.startsWith(path);
   };
@@ -139,7 +139,7 @@ export function AppSidebar({ isFixed = false, isOpen, onToggle }: AppSidebarProp
   };
 
   const handleLogoClick = () => {
-    navigate('/');
+    navigate('/dashboard');
   };
 
   const handleNotificationClick = () => {
@@ -177,9 +177,9 @@ export function AppSidebar({ isFixed = false, isOpen, onToggle }: AppSidebarProp
         isFixed ? 'relative' : ''
       }`}
       style={{ 
-        width: sidebarOpen ? '200px' : '64px',
-        minWidth: sidebarOpen ? '200px' : '64px',
-        maxWidth: sidebarOpen ? '200px' : '64px'
+        width: sidebarOpen ? '12.5rem' : '4rem',
+        minWidth: sidebarOpen ? '12.5rem' : '4rem',
+        maxWidth: sidebarOpen ? '12.5rem' : '4rem'
       }}
     >
       {/* Header */}
@@ -340,7 +340,7 @@ export function AppSidebar({ isFixed = false, isOpen, onToggle }: AppSidebarProp
                 className="flex items-center h-10 w-full rounded-lg transition-colors text-sidebar-foreground/70 hover:text-sidebar-primary hover:bg-sidebar-accent/50 font-medium"
               >
                 <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
-                  {sidebarOpen ? <Pin className="w-5 h-5" /> : <PinOff className="w-5 h-5" />}
+                  {sidebarOpen ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
                 </div>
                 <div 
                   className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${

@@ -148,12 +148,13 @@ const ContactsTable = ({ columns, contacts, onEditContact, onDeleteContact }: Co
         <CardTitle>Contacts List</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="mb-4">
+        <div className="mb-4 w-64">
           <Input
             type="text"
             placeholder="Search contacts..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
+            inputSize="control"
           />
         </div>
 
@@ -166,10 +167,10 @@ const ContactsTable = ({ columns, contacts, onEditContact, onDeleteContact }: Co
           />
         )}
 
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[calc(100vh-280px)]">
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="sticky top-0 z-20 bg-muted">
                 <TableHead className="w-[50px]">
                   <Checkbox
                     checked={isAllSelected}

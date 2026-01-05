@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useCRUDAudit } from "@/hooks/useCRUDAudit";
+import { useDuplicateDetection } from "@/hooks/useDuplicateDetection";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -12,19 +13,34 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { X } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { X, ChevronDown } from "lucide-react";
 import { Account } from "./AccountTable";
+import { DuplicateWarning } from "./shared/DuplicateWarning";
 
 const accountSchema = z.object({
-  company_name: z.string().min(1, "Company name is required"),
+  company_name: z.string()
+    .min(1, "Company name is required")
+    .min(2, "Company name must be at least 2 characters")
+    .max(100, "Company name must be less than 100 characters"),
+  email: z.string().email("Please enter a valid email address (e.g., contact@company.com)").optional().or(z.literal("")),
   region: z.string().optional(),
   country: z.string().optional(),
-  website: z.string().url("Invalid website URL").optional().or(z.literal("")),
+  website: z.string()
+    .refine((val) => !val || val.startsWith('http://') || val.startsWith('https://') || /^[a-zA-Z0-9][a-zA-Z0-9-]*\.[a-zA-Z]{2,}/.test(val), {
+      message: "Please enter a valid URL (e.g., https://company.com or company.com)"
+    })
+    .optional()
+    .or(z.literal("")),
   company_type: z.string().optional(),
   status: z.string().optional(),
-  notes: z.string().optional(),
+  notes: z.string().max(2000, "Notes must be less than 2000 characters").optional(),
   industry: z.string().optional(),
-  phone: z.string().optional(),
+  phone: z.string()
+    .refine((val) => !val || /^[+]?[\d\s\-().]{7,20}$/.test(val), {
+      message: "Please enter a valid phone number (e.g., +1 234 567 8900)"
+    })
+    .optional(),
 });
 
 type AccountFormData = z.infer<typeof accountSchema>;
@@ -56,7 +72,15 @@ const tagOptions = [
   "Vehicle Architecture", "Connected Car", "Platform", "µC/HW"
 ];
 
-const industries = ["Automotive", "Technology", "Manufacturing", "Other"];
+const industries = [
+  "Automotive", "Technology", "Manufacturing", "Healthcare", "Finance/Banking",
+  "Retail", "Energy", "Aerospace", "Telecommunications", "Logistics",
+  "Government", "Education", "Consulting", "Software", "Electronics", "Other"
+];
+
+const companyTypes = ["OEM", "Tier-1", "Tier-2", "Startup", "Enterprise", "SMB", "Government", "Non-Profit", "Other"];
+
+
 
 export const AccountModal = ({ open, onOpenChange, account, onSuccess }: AccountModalProps) => {
   const { toast } = useToast();
@@ -65,10 +89,35 @@ export const AccountModal = ({ open, onOpenChange, account, onSuccess }: Account
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [availableCountries, setAvailableCountries] = useState<string[]>([]);
 
+  // Duplicate detection for accounts
+  const { duplicates, isChecking, checkDuplicates, clearDuplicates } = useDuplicateDetection({
+    table: 'accounts',
+    nameField: 'company_name',
+    emailField: 'email',
+  });
+
+  // Debounced duplicate check
+  const debouncedCheckDuplicates = useCallback(
+    (() => {
+      let timeoutId: NodeJS.Timeout;
+      return (name: string, email?: string) => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          // Only check for new accounts, not when editing
+          if (!account) {
+            checkDuplicates(name, email);
+          }
+        }, 500);
+      };
+    })(),
+    [account, checkDuplicates]
+  );
+
   const form = useForm<AccountFormData>({
     resolver: zodResolver(accountSchema),
     defaultValues: {
       company_name: "",
+      email: "",
       region: "",
       country: "",
       website: "",
@@ -94,6 +143,7 @@ export const AccountModal = ({ open, onOpenChange, account, onSuccess }: Account
     if (account) {
       form.reset({
         company_name: account.company_name || "",
+        email: account.email || "",
         region: account.region || "",
         country: account.country || "",
         website: account.website || "",
@@ -102,6 +152,7 @@ export const AccountModal = ({ open, onOpenChange, account, onSuccess }: Account
         notes: account.notes || "",
         industry: account.industry || "",
         phone: account.phone || "",
+        
       });
       setSelectedTags(account.tags || []);
       if (account.region && regionCountries[account.region]) {
@@ -110,6 +161,7 @@ export const AccountModal = ({ open, onOpenChange, account, onSuccess }: Account
     } else {
       form.reset({
         company_name: "",
+        email: "",
         region: "",
         country: "",
         website: "",
@@ -118,6 +170,7 @@ export const AccountModal = ({ open, onOpenChange, account, onSuccess }: Account
         notes: "",
         industry: "",
         phone: "",
+        
       });
       setSelectedTags([]);
     }
@@ -143,8 +196,10 @@ export const AccountModal = ({ open, onOpenChange, account, onSuccess }: Account
         return;
       }
 
+      // Only set account_owner on create, not update
       const accountData = {
         company_name: data.company_name,
+        email: data.email || null,
         region: data.region || null,
         country: data.country || null,
         website: data.website || null,
@@ -154,8 +209,9 @@ export const AccountModal = ({ open, onOpenChange, account, onSuccess }: Account
         notes: data.notes || null,
         industry: data.industry || null,
         phone: data.phone || null,
-        account_owner: user.data.user.id,
         modified_by: user.data.user.id,
+        // Only set account_owner on new accounts
+        ...(account ? {} : { account_owner: user.data.user.id }),
       };
 
       if (account) {
@@ -219,6 +275,11 @@ export const AccountModal = ({ open, onOpenChange, account, onSuccess }: Account
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            {/* Duplicate Warning */}
+            {!account && duplicates.length > 0 && (
+              <DuplicateWarning duplicates={duplicates} entityType="account" />
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -227,7 +288,28 @@ export const AccountModal = ({ open, onOpenChange, account, onSuccess }: Account
                   <FormItem>
                     <FormLabel>Company Name *</FormLabel>
                     <FormControl>
-                      <Input placeholder="Company Name" {...field} />
+                      <Input 
+                        placeholder="Company Name" 
+                        {...field} 
+                        onChange={(e) => {
+                          field.onChange(e);
+                          debouncedCheckDuplicates(e.target.value, form.getValues('email'));
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder="contact@company.com" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -343,13 +425,25 @@ export const AccountModal = ({ open, onOpenChange, account, onSuccess }: Account
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Company Type</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g., OEM, Tier-1, Startup" {...field} />
-                    </FormControl>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select company type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {companyTypes.map((type) => (
+                          <SelectItem key={type} value={type}>
+                            {type}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+
 
               <FormField
                 control={form.control}
@@ -380,26 +474,71 @@ export const AccountModal = ({ open, onOpenChange, account, onSuccess }: Account
             {/* Tags Multi-select */}
             <div className="space-y-2">
               <FormLabel>Tags</FormLabel>
-              <div className="flex flex-wrap gap-2 p-3 border rounded-md bg-background min-h-[80px]">
-                {tagOptions.map((tag) => (
-                  <Badge
-                    key={tag}
-                    variant={selectedTags.includes(tag) ? "default" : "outline"}
-                    className="cursor-pointer hover:opacity-80 transition-opacity"
-                    onClick={() => toggleTag(tag)}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className="w-full justify-between h-auto min-h-10 py-2"
                   >
-                    {tag}
-                    {selectedTags.includes(tag) && (
-                      <X className="w-3 h-3 ml-1" />
-                    )}
-                  </Badge>
-                ))}
-              </div>
-              {selectedTags.length > 0 && (
-                <p className="text-sm text-muted-foreground">
-                  Selected: {selectedTags.join(", ")}
-                </p>
-              )}
+                    <div className="flex items-center gap-1 flex-1 min-w-0">
+                      {selectedTags.length > 0 ? (
+                        <div className="flex gap-1 flex-wrap flex-1">
+                          {selectedTags.slice(0, 4).map((tag) => (
+                            <Badge key={tag} variant="secondary" className="text-xs">
+                              {tag}
+                            </Badge>
+                          ))}
+                          {selectedTags.length > 4 && (
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Badge 
+                                  variant="outline" 
+                                  className="text-xs cursor-pointer hover:bg-muted"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  +{selectedTags.length - 4} more
+                                </Badge>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-2" side="top" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex flex-wrap gap-1 max-w-xs">
+                                  {selectedTags.slice(4).map((tag) => (
+                                    <Badge key={tag} variant="secondary" className="text-xs">
+                                      {tag}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">Select tags...</span>
+                      )}
+                    </div>
+                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[400px] p-0 bg-popover z-50" align="start">
+                  <div className="p-3 max-h-[300px] overflow-y-auto">
+                    <div className="flex flex-wrap gap-2">
+                      {tagOptions.map((tag) => (
+                        <Badge
+                          key={tag}
+                          variant={selectedTags.includes(tag) ? "default" : "outline"}
+                          className="cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() => toggleTag(tag)}
+                        >
+                          {tag}
+                          {selectedTags.includes(tag) && (
+                            <X className="w-3 h-3 ml-1" />
+                          )}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
 
             <FormField
@@ -429,7 +568,12 @@ export const AccountModal = ({ open, onOpenChange, account, onSuccess }: Account
                 Cancel
               </Button>
               <Button type="submit" disabled={loading}>
-                {loading ? "Saving..." : account ? "Save Changes" : "Add Account"}
+                {loading ? (
+                  <>
+                    <span className="animate-spin mr-2">⏳</span>
+                    {account ? "Saving..." : "Creating..."}
+                  </>
+                ) : account ? "Save Changes" : "Add Account"}
               </Button>
             </div>
           </form>

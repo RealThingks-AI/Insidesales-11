@@ -1,26 +1,70 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useCRUDAudit } from "@/hooks/useCRUDAudit";
+import { useDuplicateDetection } from "@/hooks/useDuplicateDetection";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { X, ChevronDown } from "lucide-react";
+import { DuplicateWarning } from "./shared/DuplicateWarning";
+
+// Helper function for URL validation
+const normalizeUrl = (url: string) => {
+  if (!url) return url;
+  if (!/^https?:\/\//i.test(url)) {
+    return `https://${url}`;
+  }
+  return url;
+};
+
+// Phone number validation regex - allows various international formats
+const phoneRegex = /^[\+]?[(]?[0-9]{1,4}[)]?[-\s\.]?[0-9]{1,4}[-\s\.]?[0-9]{1,9}$/;
 
 const contactSchema = z.object({
-  contact_name: z.string().min(1, "Contact name is required"),
+  contact_name: z.string()
+    .min(1, "Contact name is required")
+    .min(2, "Contact name must be at least 2 characters")
+    .max(100, "Contact name must be less than 100 characters"),
   account_id: z.string().optional(),
-  position: z.string().optional(),
-  email: z.string().email("Invalid email address").optional().or(z.literal("")),
-  phone_no: z.string().optional(),
-  linkedin: z.string().url("Invalid LinkedIn URL").optional().or(z.literal("")),
+  position: z.string().max(100, "Position must be less than 100 characters").optional(),
+  email: z.string().email("Please enter a valid email address (e.g., name@company.com)").optional().or(z.literal("")),
+  phone_no: z.string()
+    .refine((val) => !val || phoneRegex.test(val.replace(/\s/g, '')), {
+      message: "Please enter a valid phone number (e.g., +1 234 567 8900)",
+    })
+    .optional(),
+  linkedin: z.string()
+    .refine((val) => !val || val.includes('linkedin.com'), {
+      message: "Please enter a valid LinkedIn URL (e.g., https://linkedin.com/in/username)",
+    })
+    .optional()
+    .or(z.literal("")),
+  website: z.string()
+    .refine((val) => {
+      if (!val) return true;
+      const normalized = normalizeUrl(val);
+      try {
+        new URL(normalized);
+        return true;
+      } catch {
+        return false;
+      }
+    }, {
+      message: "Please enter a valid website URL (e.g., company.com or https://company.com)",
+    })
+    .optional()
+    .or(z.literal("")),
   contact_source: z.string().optional(),
-  description: z.string().optional(),
+  description: z.string().max(1000, "Description must be less than 1000 characters").optional(),
 });
 
 type ContactFormData = z.infer<typeof contactSchema>;
@@ -39,6 +83,7 @@ interface Contact {
   industry?: string;
   region?: string;
   description?: string;
+  tags?: string[];
 }
 
 interface Account {
@@ -54,12 +99,22 @@ interface ContactModalProps {
 }
 
 const contactSources = [
-  "LinkedIn",
   "Website",
-  "Referral", 
-  "Social Media",
+  "Referral",
+  "LinkedIn",
+  "Cold Call",
+  "Trade Show",
   "Email Campaign",
+  "Social Media",
+  "Partner",
   "Other"
+];
+
+const tagOptions = [
+  "AUTOSAR", "Adaptive AUTOSAR", "Embedded Systems", "BSW", "ECU", "Zone Controller",
+  "HCP", "CI/CD", "V&V Testing", "Integration", "Software Architecture", "LINUX",
+  "QNX", "Cybersecurity", "FuSa", "OTA", "Diagnostics", "Vehicle Network",
+  "Vehicle Architecture", "Connected Car", "Platform", "µC/HW"
 ];
 
 export const ContactModal = ({ open, onOpenChange, contact, onSuccess }: ContactModalProps) => {
@@ -68,6 +123,37 @@ export const ContactModal = ({ open, onOpenChange, contact, onSuccess }: Contact
   const [loading, setLoading] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [accountSearch, setAccountSearch] = useState("");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+
+  // Duplicate detection for contacts
+  const { duplicates, isChecking, checkDuplicates, clearDuplicates } = useDuplicateDetection({
+    table: 'contacts',
+    nameField: 'contact_name',
+    emailField: 'email',
+  });
+
+  // Debounced duplicate check
+  const debouncedCheckDuplicates = useCallback(
+    (() => {
+      let timeoutId: NodeJS.Timeout;
+      return (name: string, email?: string) => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          // Only check for new contacts, not when editing
+          if (!contact) {
+            checkDuplicates(name, email);
+          }
+        }, 500);
+      };
+    })(),
+    [contact, checkDuplicates]
+  );
+
+  const toggleTag = (tag: string) => {
+    setSelectedTags(prev => 
+      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+    );
+  };
 
   const form = useForm<ContactFormData>({
     resolver: zodResolver(contactSchema),
@@ -113,6 +199,7 @@ export const ContactModal = ({ open, onOpenChange, contact, onSuccess }: Contact
         contact_source: contact.contact_source || "",
         description: contact.description || "",
       });
+      setSelectedTags(contact.tags || []);
     } else {
       form.reset({
         contact_name: "",
@@ -124,6 +211,7 @@ export const ContactModal = ({ open, onOpenChange, contact, onSuccess }: Contact
         contact_source: "",
         description: "",
       });
+      setSelectedTags([]);
     }
   }, [contact, form]);
 
@@ -151,9 +239,11 @@ export const ContactModal = ({ open, onOpenChange, contact, onSuccess }: Contact
         position: data.position || null,
         email: data.email || null,
         phone_no: data.phone_no || null,
-        linkedin: data.linkedin || null,
+        linkedin: data.linkedin ? normalizeUrl(data.linkedin) : null,
+        website: data.website ? normalizeUrl(data.website) : null,
         contact_source: data.contact_source || null,
         description: data.description || null,
+        tags: selectedTags,
         created_by: user.data.user.id,
         modified_by: user.data.user.id,
         contact_owner: user.data.user.id,
@@ -215,7 +305,7 @@ export const ContactModal = ({ open, onOpenChange, contact, onSuccess }: Contact
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {contact ? "Edit Contact" : "Add New Contact"}
@@ -224,6 +314,11 @@ export const ContactModal = ({ open, onOpenChange, contact, onSuccess }: Contact
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            {/* Duplicate Warning */}
+            {!contact && duplicates.length > 0 && (
+              <DuplicateWarning duplicates={duplicates} entityType="contact" />
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -232,7 +327,14 @@ export const ContactModal = ({ open, onOpenChange, contact, onSuccess }: Contact
                   <FormItem>
                     <FormLabel>Contact Name *</FormLabel>
                     <FormControl>
-                      <Input placeholder="Contact Name" {...field} />
+                      <Input 
+                        placeholder="Contact Name" 
+                        {...field}
+                        onChange={(e) => {
+                          field.onChange(e);
+                          debouncedCheckDuplicates(e.target.value, form.getValues('email'));
+                        }}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -257,7 +359,7 @@ export const ContactModal = ({ open, onOpenChange, contact, onSuccess }: Contact
                             placeholder="Search accounts..."
                             value={accountSearch}
                             onChange={(e) => setAccountSearch(e.target.value)}
-                            className="h-8"
+                            inputSize="control"
                           />
                         </div>
                         {filteredAccounts.map((account) => (
@@ -298,7 +400,15 @@ export const ContactModal = ({ open, onOpenChange, contact, onSuccess }: Contact
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="email@example.com" {...field} />
+                      <Input 
+                        type="email" 
+                        placeholder="email@example.com" 
+                        {...field}
+                        onChange={(e) => {
+                          field.onChange(e);
+                          debouncedCheckDuplicates(form.getValues('contact_name'), e.target.value);
+                        }}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -359,6 +469,57 @@ export const ContactModal = ({ open, onOpenChange, contact, onSuccess }: Contact
               />
             </div>
 
+            {/* Tags Multi-select */}
+            <div className="space-y-2">
+              <FormLabel>Tags</FormLabel>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className="w-full justify-between h-auto min-h-10"
+                  >
+                    <div className="flex flex-wrap gap-1 flex-1">
+                      {selectedTags.length > 0 ? (
+                        selectedTags.slice(0, 3).map((tag) => (
+                          <Badge key={tag} variant="secondary" className="text-xs">
+                            {tag}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-muted-foreground">Select tags...</span>
+                      )}
+                      {selectedTags.length > 3 && (
+                        <Badge variant="secondary" className="text-xs">
+                          +{selectedTags.length - 3} more
+                        </Badge>
+                      )}
+                    </div>
+                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[400px] p-0 bg-popover z-50" align="start">
+                  <div className="p-3 max-h-[300px] overflow-y-auto">
+                    <div className="flex flex-wrap gap-2">
+                      {tagOptions.map((tag) => (
+                        <Badge
+                          key={tag}
+                          variant={selectedTags.includes(tag) ? "default" : "outline"}
+                          className="cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() => toggleTag(tag)}
+                        >
+                          {tag}
+                          {selectedTags.includes(tag) && (
+                            <X className="w-3 h-3 ml-1" />
+                          )}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+
             <FormField
               control={form.control}
               name="description"
@@ -386,7 +547,12 @@ export const ContactModal = ({ open, onOpenChange, contact, onSuccess }: Contact
                 Cancel
               </Button>
               <Button type="submit" disabled={loading}>
-                {loading ? "Saving..." : contact ? "Save Changes" : "Add Contact"}
+                {loading ? (
+                  <>
+                    <span className="animate-spin mr-2">⏳</span>
+                    {contact ? "Saving..." : "Creating..."}
+                  </>
+                ) : contact ? "Save Changes" : "Add Contact"}
               </Button>
             </div>
           </form>
