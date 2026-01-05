@@ -279,14 +279,14 @@ export const FormFieldRenderer = ({ field, value, onChange, onLeadSelect, error 
       case 'account_id':
         return (
           <Select
-            value={value || ''}
-            onValueChange={(val) => onChange(field, val || null)}
+            value={value || '__none__'}
+            onValueChange={(val) => onChange(field, val === '__none__' ? null : val)}
           >
             <SelectTrigger>
               <SelectValue placeholder="Select account..." />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">No account</SelectItem>
+              <SelectItem value="__none__">No account</SelectItem>
               {accounts.map((acc: any) => (
                 <SelectItem key={acc.id} value={acc.id}>
                   {acc.company_name}
@@ -299,14 +299,14 @@ export const FormFieldRenderer = ({ field, value, onChange, onLeadSelect, error 
       case 'contact_id':
         return (
           <Select
-            value={value || ''}
-            onValueChange={(val) => onChange(field, val || null)}
+            value={value || '__none__'}
+            onValueChange={(val) => onChange(field, val === '__none__' ? null : val)}
           >
             <SelectTrigger>
               <SelectValue placeholder="Select contact..." />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">No contact</SelectItem>
+              <SelectItem value="__none__">No contact</SelectItem>
               {contacts.map((contact: any) => (
                 <SelectItem key={contact.id} value={contact.id}>
                   {contact.contact_name}
