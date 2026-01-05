@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useUserRole } from '@/hooks/useUserRole';
 
 interface PagePermission {
   id: string;
@@ -11,14 +12,24 @@ interface PagePermission {
   user_access: boolean;
 }
 
+// In-memory cache for page permissions
+let permissionsCache: { data: PagePermission[]; timestamp: number } | null = null;
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 export const usePageAccess = (route: string) => {
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const { user, loading: authLoading } = useAuth();
+  const { userRole, loading: roleLoading } = useUserRole();
+
+  // Normalize route once
+  const normalizedRoute = useMemo(() => {
+    return route === '/' ? '/dashboard' : route.replace(/\/$/, '');
+  }, [route]);
 
   const checkAccess = useCallback(async () => {
-    // Wait for auth to finish loading
-    if (authLoading) {
+    // Wait for auth and role to finish loading
+    if (authLoading || roleLoading) {
       return;
     }
 
@@ -29,37 +40,39 @@ export const usePageAccess = (route: string) => {
     }
 
     try {
-      // Normalize route - handle "/" as "/dashboard" and remove trailing slashes
-      const normalizedRoute = route === '/' ? '/dashboard' : route.replace(/\/$/, '');
-      console.log('usePageAccess - Checking access for normalized route:', normalizedRoute);
+      let permissions: PagePermission[];
 
-      // Get user role from user_roles table (more reliable than metadata)
-      const { data: roleData, error: roleError } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      // Check cache first
+      if (permissionsCache && Date.now() - permissionsCache.timestamp < CACHE_TTL) {
+        permissions = permissionsCache.data;
+      } else {
+        // Fetch all permissions and cache them
+        const { data, error } = await supabase
+          .from('page_permissions')
+          .select('*');
 
-      // Fallback to metadata if no role in table, then default to 'user'
-      const userRole = roleData?.role || user.user_metadata?.role || 'user';
-      console.log('usePageAccess - User ID:', user.id, 'Role:', userRole, 'for route:', normalizedRoute);
+        if (error) {
+          console.error('Error fetching permissions:', error);
+          setHasAccess(true); // Default to allow on error
+          setLoading(false);
+          return;
+        }
 
-      // Get page permission for this route
-      const { data: permissionData, error: permissionError } = await supabase
-        .from('page_permissions')
-        .select('*')
-        .eq('route', normalizedRoute)
-        .maybeSingle();
+        permissions = data || [];
+        permissionsCache = { data: permissions, timestamp: Date.now() };
+      }
 
-      if (permissionError || !permissionData) {
-        console.log('No permission found for route:', normalizedRoute, '- allowing access by default');
+      // Find permission for this route
+      const permissionData = permissions.find(p => p.route === normalizedRoute);
+
+      if (!permissionData) {
         // If no permission record exists, allow access
         setHasAccess(true);
         setLoading(false);
         return;
       }
 
-      // Check access based on user role
+      // Check access based on user role (from useUserRole hook)
       let canAccess = false;
       switch (userRole) {
         case 'admin':
@@ -74,14 +87,6 @@ export const usePageAccess = (route: string) => {
           break;
       }
 
-      console.log('usePageAccess - Permission check result:', { 
-        route: normalizedRoute, 
-        userRole, 
-        canAccess, 
-        admin_access: permissionData.admin_access,
-        manager_access: permissionData.manager_access,
-        user_access: permissionData.user_access
-      });
       setHasAccess(canAccess);
     } catch (error) {
       console.error('Error checking page access:', error);
@@ -90,13 +95,13 @@ export const usePageAccess = (route: string) => {
     } finally {
       setLoading(false);
     }
-  }, [user, route, authLoading]);
+  }, [user, normalizedRoute, authLoading, roleLoading, userRole]);
 
   useEffect(() => {
     checkAccess();
   }, [checkAccess]);
 
-  return { hasAccess, loading, refetch: checkAccess };
+  return { hasAccess, loading: loading || authLoading || roleLoading, refetch: checkAccess };
 };
 
 export const useAllPagePermissions = () => {
@@ -106,12 +111,22 @@ export const useAllPagePermissions = () => {
   useEffect(() => {
     const fetchPermissions = async () => {
       try {
+        // Check cache first
+        if (permissionsCache && Date.now() - permissionsCache.timestamp < CACHE_TTL) {
+          setPermissions(permissionsCache.data);
+          setLoading(false);
+          return;
+        }
+
         const { data, error } = await supabase
           .from('page_permissions')
           .select('*');
 
         if (error) throw error;
-        setPermissions(data || []);
+        
+        const perms = data || [];
+        setPermissions(perms);
+        permissionsCache = { data: perms, timestamp: Date.now() };
       } catch (error) {
         console.error('Error fetching page permissions:', error);
       } finally {
@@ -123,4 +138,9 @@ export const useAllPagePermissions = () => {
   }, []);
 
   return { permissions, loading };
+};
+
+// Helper to clear permissions cache (useful after updates)
+export const clearPermissionsCache = () => {
+  permissionsCache = null;
 };
