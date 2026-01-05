@@ -174,16 +174,12 @@ export const DealActionItemsSection = ({ dealId, disabled }: DealActionItemsSect
             className="w-40"
             placeholder="Due date"
           />
-          <Select 
-            value={newAssignee || '__none__'} 
-            onValueChange={(val) => setNewAssignee(val === '__none__' ? '' : val)} 
-            disabled={disabled || saving}
-          >
+          <Select value={newAssignee} onValueChange={setNewAssignee} disabled={disabled || saving}>
             <SelectTrigger className="w-40">
               <SelectValue placeholder="Assign to..." />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="__none__">Unassigned</SelectItem>
+              <SelectItem value="">Unassigned</SelectItem>
               {users.map(u => (
                 <SelectItem key={u.id} value={u.id}>
                   {u.full_name || 'Unknown'}

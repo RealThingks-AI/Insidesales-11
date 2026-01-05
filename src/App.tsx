@@ -24,16 +24,7 @@ const Notifications = lazy(() => import("./pages/Notifications"));
 const Tasks = lazy(() => import("./pages/Tasks"));
 const StickyHeaderTest = lazy(() => import("./pages/StickyHeaderTest"));
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 2, // 2 minutes - data stays fresh
-      gcTime: 1000 * 60 * 5, // 5 minutes - cache retention
-      refetchOnWindowFocus: false, // Prevent refetch on tab switch
-      retry: 1, // Reduce retry attempts
-    },
-  },
-});
+const queryClient = new QueryClient();
 
 // Loading fallback component
 const PageLoader = () => (

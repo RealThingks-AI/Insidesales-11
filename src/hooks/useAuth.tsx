@@ -152,11 +152,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     };
 
-    // Get initial session immediately - no delay needed
-    getInitialSession();
+    // Small delay to allow auth state change to handle session first
+    const timeoutId = setTimeout(getInitialSession, 100);
 
     return () => {
       mounted = false;
+      clearTimeout(timeoutId);
       subscription.unsubscribe();
     };
   }, []); // Empty dependency array to prevent re-running

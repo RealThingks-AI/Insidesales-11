@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useEffect, useRef, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useSecurityAudit } from '@/hooks/useSecurityAudit';
-import { useUserRole } from '@/hooks/useUserRole';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SecurityContextType {
   isSecurityEnabled: boolean;
@@ -26,12 +26,52 @@ interface SecurityProviderProps {
 export const SecurityProvider = ({ children }: SecurityProviderProps) => {
   const { user } = useAuth();
   const { logSecurityEvent } = useSecurityAudit();
-  // Use the centralized useUserRole hook instead of fetching separately
-  const { userRole, isAdmin } = useUserRole();
+  const [userRole, setUserRole] = useState<string | null>(null);
   
   // Refs to prevent duplicate session logging
   const sessionLoggedRef = useRef<string | null>(null);
   const visibilityHandlerRef = useRef<(() => void) | null>(null);
+
+  const hasAdminAccess = userRole === 'admin';
+
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      if (!user) {
+        setUserRole(null);
+        return;
+      }
+
+      try {
+        // Check user metadata first for role
+        const metadataRole = user.user_metadata?.role;
+        if (metadataRole) {
+          setUserRole(metadataRole);
+          return;
+        }
+
+        // Fallback to database lookup
+        const { data, error } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .single();
+
+        if (error && error.code !== 'PGRST116') {
+          console.error('Error fetching user role:', error);
+          setUserRole('user');
+          return;
+        }
+
+        const role = data?.role || 'user';
+        setUserRole(role);
+      } catch (error) {
+        console.error('Failed to fetch user role:', error);
+        setUserRole('user');
+      }
+    };
+
+    fetchUserRole();
+  }, [user]);
 
   // Debounced visibility change handler
   const handleVisibilityChange = useCallback(() => {
@@ -82,7 +122,7 @@ export const SecurityProvider = ({ children }: SecurityProviderProps) => {
 
   const value = {
     isSecurityEnabled: true,
-    hasAdminAccess: isAdmin,
+    hasAdminAccess,
     userRole
   };
 
