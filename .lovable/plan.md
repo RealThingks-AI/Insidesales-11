@@ -1,125 +1,118 @@
 
 
-## Backup and Restore System for Administration
+## Revamp Security Audit Logs - Industry Standard
 
-### Overview
-Add a full backup and restore system under the Administration > System tab. This includes database tables, storage bucket, two edge functions, a UI component, and an automatic cleanup mechanism. The system supports both manual and automatic backups (every 2 days), stores backups in Supabase Storage (max 30), and allows module-wise backup/restore.
+### Current Issues
+1. **Details shown as raw JSON** - When clicking "View details", it dumps raw JSON which is unreadable
+2. **No pagination** - Loads 1000 rows at once, no way to navigate pages
+3. **No date range filter** - Can't filter logs by date
+4. **Noisy data** - 10,000+ SESSION_START/SESSION_END entries drown out meaningful logs
+5. **No detail modal** - Details expand inline as JSON, no structured view
+6. **Column order not optimal** - Timestamp first instead of User-first grouping
+7. **No severity indicators** - All actions look the same visually
+8. **Statistics are basic** - Just 4 counters, no useful breakdown
+9. **Export uses raw user IDs** - CSV exports user_id instead of names
+10. **field_changes shows system fields** like `modified_at` which are noise
 
----
+### Plan
 
-### Technical Architecture
+#### 1. Restructured Column Layout
+Reorder columns to a more logical flow:
+- **Date/Time** - formatted as "Feb 10, 2026 4:04 PM"
+- **User** - resolved display name with avatar initial
+- **Activity** - colored badge (Created, Updated, Deleted, Login, Export, etc.)
+- **Module** - Contacts, Deals, Leads, Tasks, etc.
+- **Summary** - Human-readable one-line summary of what happened
+- **Actions** - View Details button + Revert button (when applicable)
 
-**Database Tables:**
+#### 2. Human-Readable Detail Panel (Dialog, not JSON)
+Replace the inline JSON `<details>` with a proper **Dialog/Sheet** that shows:
 
-1. `backups` - Stores backup metadata
-   - `id` (uuid, PK)
-   - `file_name` (text)
-   - `file_path` (text) - path in storage bucket
-   - `size_bytes` (bigint)
-   - `tables_count` (integer)
-   - `records_count` (integer)
-   - `backup_type` (text) - 'manual' | 'scheduled' | 'module'
-   - `module_name` (text, nullable) - for module-specific backups
-   - `status` (text) - 'completed' | 'failed' | 'in_progress'
-   - `manifest` (jsonb) - table names, row counts, metadata
-   - `created_at` (timestamptz)
-   - `created_by` (uuid, FK to auth.users)
+**For UPDATE actions:**
+- Record name (e.g., "Deal: HCP 3 In-House development")
+- Table of field changes: Field Name | Previous Value | New Value
+- Filter out noise fields: `modified_at`, `modified_by`, `created_at`, `created_by`, `id`
+- Format field names: `customer_name` becomes "Customer Name"
+- Format dates, booleans, nulls into readable text
 
-2. `backup_schedules` - Stores auto-backup configuration
-   - `id` (uuid, PK)
-   - `frequency` (text) - 'every_2_days' | 'daily' | 'weekly'
-   - `time_of_day` (text) - e.g., '00:00'
-   - `is_enabled` (boolean)
-   - `next_run_at` (timestamptz)
-   - `last_run_at` (timestamptz)
-   - `created_by` (uuid)
-   - `created_at` / `updated_at` (timestamptz)
+**For CREATE actions:**
+- Record name
+- Key fields displayed as a definition list (Label: Value pairs)
+- Skip null/empty fields
+- Skip internal fields (id, created_at, etc.)
 
-**Storage:**
-- Create a private `backups` bucket with RLS policies allowing only admin users to read/write
+**For DELETE actions:**
+- Record name
+- Show what was deleted in a definition list
 
-**Edge Functions:**
+**For NOTE/EMAIL/MEETING/CALL actions:**
+- Show the message content directly
+- Show log type label
 
-1. `create-backup` - Creates a JSON backup of all (or specific module) tables, uploads to storage, records metadata, enforces 30-backup limit by deleting oldest
-2. `restore-backup` - Downloads backup from storage, restores data to specified tables
+**For AUTH actions (LOGIN/LOGOUT):**
+- Email, browser/device info, time
 
-**Cron Job:**
-- Use `pg_cron` + `pg_net` to call `create-backup` every 2 days automatically
+**For DATA_EXPORT/IMPORT:**
+- Module, file name, record count, scope
 
----
+#### 3. Add Pagination
+- 50 rows per page
+- Page navigation at the bottom
+- Show "Showing 1-50 of 1,234 entries"
 
-### Files to Create
+#### 4. Add Date Range Filter
+- Date picker for "From" and "To" dates
+- Quick presets: Today, Last 7 days, Last 30 days, This month
 
-| File | Purpose |
-|------|---------|
-| `supabase/functions/create-backup/index.ts` | Edge function: exports data as JSON, uploads to storage, cleans up old backups (>30) |
-| `supabase/functions/restore-backup/index.ts` | Edge function: downloads backup JSON from storage, upserts data into tables |
-| `src/components/settings/BackupRestoreSettings.tsx` | Full UI component (adapted from reference file) |
-| Migration | Creates `backups`, `backup_schedules` tables, `backups` storage bucket, RLS policies |
+#### 5. Improved Filter Categories
+- All Activities
+- Record Changes (Create/Update/Delete)
+- User Management (role changes, password, etc.)
+- Authentication (Login/Logout only, exclude session noise)
+- Data Import/Export
+- Activities (Notes, Emails, Meetings, Calls)
 
-### Files to Modify
+#### 6. Smart Summary Column
+Generate a human-readable one-liner for each log:
+- UPDATE: "Updated Deal 'HCP 3' - changed status from In Progress to Completed"
+- CREATE: "Created new Lead 'Deepak Dongare'"
+- DELETE: "Deleted Contact 'John Smith'"
+- NOTE: "Added note on Deal: 'dfdf'"
+- EMAIL: "Logged email activity on Deal"
+- SESSION_START: "Logged in"
+- DATA_EXPORT: "Exported 48 deals as CSV"
 
-| File | Change |
-|------|--------|
-| `src/components/settings/AdminSettingsPage.tsx` | Replace "System" placeholder with `BackupRestoreSettings` component, add `Database` icon import, add 'backup' tab mapping |
+#### 7. Improved Statistics Section
+- Show breakdown by module (Deals, Leads, Contacts, Tasks)
+- Show breakdown by user (who is most active)
+- Time-based: "Today: X events | This week: Y events"
 
----
+#### 8. Better Export
+- Include resolved user names instead of UUIDs
+- Include the human-readable summary column
+- Proper CSV escaping
 
-### Feature Details
+#### 9. Exclude Noise by Default
+- Filter out SESSION_ACTIVE, SESSION_INACTIVE, SESSION_HEARTBEAT, WINDOW_BLUR, WINDOW_FOCUS, USER_ACTIVITY, SELECT, SENSITIVE_DATA_ACCESS, PAGE_NAVIGATION by default
+- These are system-level events that clutter the admin view
 
-#### Manual Backup
-- "Export All Data" button creates a full backup of all CRM tables (leads, contacts, accounts, deals, action_items, etc.)
-- Backup is saved as JSON to the `backups` storage bucket
-- Metadata recorded in `backups` table
+### Technical Details
 
-#### Automatic Backup (every 2 days)
-- Toggle to enable/disable scheduled backups
-- Configurable time of day
-- Uses `pg_cron` to invoke the `create-backup` edge function every 2 days
-- Schedule info shows next run and last run times
+**Files to modify:**
+- `src/components/settings/AuditLogsSettings.tsx` - Complete rewrite of the component
 
-#### Restore
-- Select any backup from history
-- Confirmation dialog requiring user to type "CONFIRM"
-- Warns about data overwrite
-- Calls `restore-backup` edge function
+**New sub-components to create:**
+- `src/components/settings/audit/AuditLogDetailDialog.tsx` - Structured detail view dialog
+- `src/components/settings/audit/AuditLogFilters.tsx` - Date range + category filters
+- `src/components/settings/audit/AuditLogStats.tsx` - Enhanced statistics section
+- `src/components/settings/audit/auditLogUtils.ts` - Utility functions for formatting
 
-#### Module-wise Backup and Restore
-- Individual backup/restore per module (Leads, Contacts, Accounts, Deals, Meetings, Tasks)
-- Each module card shows record count and allows import/export
-- Template download for CSV imports
-- Adapted from the reference `ModuleImportExport` component
+**Key utility functions:**
+- `formatFieldName(field)` - Converts `customer_name` to "Customer Name"
+- `formatFieldValue(value)` - Formats dates, booleans, nulls, arrays
+- `generateSummary(log)` - Creates human-readable one-liner
+- `getExcludedActions()` - Returns list of noise actions to hide
+- `filterInternalFields(data)` - Removes `id`, `created_at`, `modified_at`, etc.
 
-#### 30-Backup Limit
-- After creating a new backup, the `create-backup` edge function checks total count
-- If >30, deletes the oldest backups (both storage file and metadata record)
-
-#### Backup History
-- Shows last 30 backups with:
-  - File name, date/time, type (Manual/Scheduled/Module)
-  - Tables count, records count, file size
-  - Download, Restore, Delete actions
-
----
-
-### Suggested Improvements You May Have Missed
-
-1. **Pre-restore automatic backup** - Before any restore, automatically create a safety backup so users can revert if the restore goes wrong
-2. **Backup integrity verification** - Add checksum/hash validation to ensure backups are not corrupted before restore
-3. **Selective table restore** - Allow users to choose which tables to restore from a backup instead of all-or-nothing
-4. **Backup size monitoring** - Show total storage used by backups and warn when approaching storage limits
-5. **Backup notifications** - Send notification to admin when auto-backup completes or fails
-6. **Export as downloadable file** - Allow downloading backup JSON to local machine as an additional safeguard
-
----
-
-### Implementation Sequence
-
-1. Create migration for `backups` and `backup_schedules` tables + storage bucket + RLS
-2. Create `create-backup` edge function
-3. Create `restore-backup` edge function
-4. Create `BackupRestoreSettings.tsx` UI component
-5. Update `AdminSettingsPage.tsx` to wire in the new component under "System" tab
-6. Set up `pg_cron` job for auto-backup every 2 days
-7. Deploy edge functions and test end-to-end
+**No database changes needed** - All improvements are UI-only on existing data.
 
