@@ -120,6 +120,11 @@ const parseFieldChanges = (details: Record<string, unknown> | null): FieldChange
 const parseChangeSummary = (action: string, details: Record<string, unknown> | null): string => {
   if (!details || typeof details !== 'object') return action === 'create' ? 'Created deal' : action;
 
+  // If there's already a formatted message (from manual action item logs), use it
+  if (details.message && typeof details.message === 'string') {
+    return details.message;
+  }
+
   const changes = parseFieldChanges(details);
   if (changes.length === 0) return action === 'create' ? 'Created deal' : 'Updated';
 
