@@ -254,14 +254,24 @@ export const DealExpandedPanel = ({ deal, onClose, onOpenActionItemModal, addDet
 
   // Merged history: manual logs + completed action items, sorted ascending
   const mergedHistory = useMemo(() => {
-    const mappedLogs = manualAndStatusLogs.map((log) => ({
-      id: log.id,
-      message: (log.details as any)?.message || parseChangeSummary(log.action, log.details),
-      user_id: log.user_id,
-      created_at: log.created_at,
-      isCompletedAction: false,
-      originalLog: log
-    }));
+    const mappedLogs = manualAndStatusLogs.map((log) => {
+      const details = log.details as any;
+      let message = details?.message || parseChangeSummary(log.action, log.details);
+      
+      // Override with action item title + new status for both old and new format logs
+      if (details?.action_item_title && details?.field_changes?.status) {
+        message = `${details.action_item_title} → ${details.field_changes.status.new}`;
+      }
+      
+      return {
+        id: log.id,
+        message,
+        user_id: log.user_id,
+        created_at: log.created_at,
+        isCompletedAction: false,
+        originalLog: log
+      };
+    });
 
     return [...mappedLogs].
     sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
