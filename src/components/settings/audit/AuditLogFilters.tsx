@@ -28,78 +28,74 @@ export const AuditLogFilters = ({
   const hasDateFilter = dateFrom || dateTo;
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search logs..."
-            value={searchTerm}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-
-        <Select value={category} onValueChange={(v) => onCategoryChange(v as FilterCategory)}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filter by type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Activities</SelectItem>
-            <SelectItem value="record_changes">Record Changes</SelectItem>
-            <SelectItem value="activities">Activities (Notes, Emails…)</SelectItem>
-            <SelectItem value="authentication">Authentication</SelectItem>
-            <SelectItem value="user_management">User Management</SelectItem>
-            <SelectItem value="export">Data Import/Export</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-2">
-              <CalendarIcon className="h-4 w-4" />
-              {dateFrom ? format(dateFrom, 'MMM dd') : 'From'}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar mode="single" selected={dateFrom} onSelect={onDateFromChange} initialFocus />
-          </PopoverContent>
-        </Popover>
-
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-2">
-              <CalendarIcon className="h-4 w-4" />
-              {dateTo ? format(dateTo, 'MMM dd') : 'To'}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar mode="single" selected={dateTo} onSelect={onDateToChange} initialFocus />
-          </PopoverContent>
-        </Popover>
-
-        {hasDateFilter && (
-          <Button variant="ghost" size="sm" onClick={() => { onDateFromChange(undefined); onDateToChange(undefined); }}>
-            <X className="h-4 w-4 mr-1" /> Clear dates
-          </Button>
-        )}
+    <div className="flex flex-wrap items-center gap-2">
+      <div className="relative flex-1 min-w-[180px]">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+        <Input
+          placeholder="Search logs..."
+          value={searchTerm}
+          onChange={(e) => onSearchChange(e.target.value)}
+          className="pl-8 h-8 text-sm"
+        />
       </div>
 
-      {/* Quick date presets */}
-      <div className="flex items-center gap-2">
-        <span className="text-xs text-muted-foreground">Quick:</span>
-        {presets.map(preset => (
-          <Button
-            key={preset.label}
-            variant="ghost"
-            size="sm"
-            className="h-7 text-xs"
-            onClick={() => { onDateFromChange(preset.from); onDateToChange(preset.to); }}
-          >
-            {preset.label}
+      <Select value={category} onValueChange={(v) => onCategoryChange(v as FilterCategory)}>
+        <SelectTrigger className="w-[170px] h-8 text-sm">
+          <SelectValue placeholder="Filter by type" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all_except_auth">All (except Auth)</SelectItem>
+          <SelectItem value="all">All Activities</SelectItem>
+          <SelectItem value="record_changes">Record Changes</SelectItem>
+          <SelectItem value="activities">Activities (Notes, Emails…)</SelectItem>
+          <SelectItem value="authentication">Authentication</SelectItem>
+          <SelectItem value="user_management">User Management</SelectItem>
+          <SelectItem value="export">Data Import/Export</SelectItem>
+        </SelectContent>
+      </Select>
+
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs px-2.5">
+            <CalendarIcon className="h-3.5 w-3.5" />
+            {dateFrom ? format(dateFrom, 'MMM dd') : 'From'}
           </Button>
-        ))}
-      </div>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar mode="single" selected={dateFrom} onSelect={onDateFromChange} initialFocus />
+        </PopoverContent>
+      </Popover>
+
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs px-2.5">
+            <CalendarIcon className="h-3.5 w-3.5" />
+            {dateTo ? format(dateTo, 'MMM dd') : 'To'}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar mode="single" selected={dateTo} onSelect={onDateToChange} initialFocus />
+        </PopoverContent>
+      </Popover>
+
+      {hasDateFilter && (
+        <Button variant="ghost" size="sm" className="h-8 text-xs px-2" onClick={() => { onDateFromChange(undefined); onDateToChange(undefined); }}>
+          <X className="h-3.5 w-3.5 mr-1" /> Clear
+        </Button>
+      )}
+
+      <span className="text-muted-foreground text-xs">|</span>
+      {presets.map(preset => (
+        <Button
+          key={preset.label}
+          variant="ghost"
+          size="sm"
+          className="h-7 text-xs px-2"
+          onClick={() => { onDateFromChange(preset.from); onDateToChange(preset.to); }}
+        >
+          {preset.label}
+        </Button>
+      ))}
     </div>
   );
 };

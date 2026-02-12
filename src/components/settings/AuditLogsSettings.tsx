@@ -32,11 +32,20 @@ const badgeColorClasses: Record<string, string> = {
 
 const ITEMS_PER_PAGE = 50;
 
+const getRowBorderColor = (action: string): string => {
+  if (action === 'CREATE' || action === 'BULK_CREATE') return 'border-l-emerald-500';
+  if (action === 'UPDATE' || action === 'BULK_UPDATE') return 'border-l-blue-500';
+  if (action === 'DELETE' || action === 'BULK_DELETE') return 'border-l-red-500';
+  if (['NOTE', 'EMAIL', 'MEETING', 'CALL'].includes(action)) return 'border-l-purple-500';
+  if (action.includes('EXPORT') || action.includes('IMPORT')) return 'border-l-orange-500';
+  return 'border-l-muted-foreground/30';
+};
+
 const AuditLogsSettings = () => {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [category, setCategory] = useState<FilterCategory>('all');
+  const [category, setCategory] = useState<FilterCategory>('all_except_auth');
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
   const [currentPage, setCurrentPage] = useState(1);
@@ -235,25 +244,25 @@ const AuditLogsSettings = () => {
 
       {/* Main Log Table */}
       <Card>
-        <CardHeader className="pb-3">
+        <CardHeader className="px-4 py-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Activity className="h-5 w-5" />
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Activity className="h-4 w-4" />
               Audit Logs
             </CardTitle>
-            <div className="flex items-center gap-2">
-              <Button onClick={fetchAuditLogs} variant="outline" size="sm" disabled={loading}>
-                <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
+            <div className="flex items-center gap-1.5">
+              <Button onClick={fetchAuditLogs} variant="outline" size="sm" className="h-7 text-xs" disabled={loading}>
+                <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loading ? 'animate-spin' : ''}`} />
                 Refresh
               </Button>
-              <Button onClick={exportAuditTrail} size="sm" variant="outline">
-                <Download className="h-4 w-4 mr-1" />
+              <Button onClick={exportAuditTrail} size="sm" variant="outline" className="h-7 text-xs">
+                <Download className="h-3.5 w-3.5 mr-1" />
                 Export
               </Button>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="px-4 pb-4 pt-0 space-y-3">
           <AuditLogFilters
             searchTerm={searchTerm}
             onSearchChange={setSearchTerm}
@@ -275,12 +284,12 @@ const AuditLogsSettings = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[150px]">Date/Time</TableHead>
-                      <TableHead className="w-[160px]">User</TableHead>
-                      <TableHead className="w-[100px]">Activity</TableHead>
-                      <TableHead className="w-[100px]">Module</TableHead>
-                      <TableHead>Summary</TableHead>
-                      <TableHead className="w-[120px] text-right">Actions</TableHead>
+                      <TableHead className="w-[10%] py-2 text-xs">Activity</TableHead>
+                      <TableHead className="w-[10%] py-2 text-xs">Module</TableHead>
+                      <TableHead className="w-[50%] py-2 text-xs">Summary</TableHead>
+                      <TableHead className="w-[10%] py-2 text-xs">User</TableHead>
+                      <TableHead className="w-[10%] py-2 text-xs">Time</TableHead>
+                      <TableHead className="w-[10%] py-2 text-xs text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -288,43 +297,42 @@ const AuditLogsSettings = () => {
                       const color = getActivityBadgeColor(log.action);
                       const userName = getUserName(log.user_id);
                       const summary = generateSummary(log);
+                      const borderColor = getRowBorderColor(log.action);
 
                       return (
-                        <TableRow key={log.id}>
-                          <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                            {format(new Date(log.created_at), 'MMM dd, yyyy')}
-                            <br />
-                            <span className="text-xs">{format(new Date(log.created_at), 'h:mm a')}</span>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <div className="h-7 w-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-semibold flex-shrink-0">
-                                {getUserInitial(log.user_id)}
-                              </div>
-                              <span className="text-sm font-medium truncate">{userName}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge className={`${badgeColorClasses[color]} border-0 text-xs`}>
+                        <TableRow key={log.id} className={`border-l-[3px] ${borderColor}`}>
+                          <TableCell className="py-1.5">
+                            <Badge className={`${badgeColorClasses[color]} border-0 text-[10px] px-1.5 py-0`}>
                               {getActivityLabel(log.action)}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-sm">
+                          <TableCell className="py-1.5 text-xs">
                             {getModuleName(log)}
                           </TableCell>
-                          <TableCell className="text-sm max-w-[300px] truncate">
+                          <TableCell className="py-1.5 text-xs truncate">
                             {summary}
                           </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-1">
+                          <TableCell className="py-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <div className="h-6 w-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-semibold flex-shrink-0">
+                                {getUserInitial(log.user_id)}
+                              </div>
+                              <span className="text-xs font-medium truncate">{userName}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="py-1.5 text-xs text-muted-foreground whitespace-nowrap">
+                            {format(new Date(log.created_at), 'MMM dd, h:mm a')}
+                          </TableCell>
+                          <TableCell className="py-1.5 text-right">
+                            <div className="flex items-center justify-end gap-0.5">
                               {log.details && (
-                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setDetailLog(log)}>
-                                  <Eye className="h-3.5 w-3.5" />
+                                <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setDetailLog(log)}>
+                                  <Eye className="h-3 w-3" />
                                 </Button>
                               )}
                               {canRevert(log) && (
-                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleRevertClick(log)} disabled={reverting}>
-                                  <Undo className="h-3.5 w-3.5" />
+                                <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => handleRevertClick(log)} disabled={reverting}>
+                                  <Undo className="h-3 w-3" />
                                 </Button>
                               )}
                             </div>
@@ -336,13 +344,13 @@ const AuditLogsSettings = () => {
                 </Table>
 
                 {filteredLogs.length === 0 && (
-                  <div className="text-center py-12">
-                    <Activity className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-                    <p className="text-muted-foreground font-medium">
-                      {searchTerm || category !== 'all' || dateFrom || dateTo ? 'No logs match your filters' : 'No audit logs found'}
+                  <div className="text-center py-8">
+                    <Activity className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-muted-foreground text-sm font-medium">
+                      {searchTerm || category !== 'all_except_auth' || dateFrom || dateTo ? 'No logs match your filters' : 'No audit logs found'}
                     </p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {searchTerm || category !== 'all' ? 'Try adjusting your filters' : 'Start using the application to generate logs'}
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {searchTerm || category !== 'all_except_auth' ? 'Try adjusting your filters' : 'Start using the application to generate logs'}
                     </p>
                   </div>
                 )}

@@ -1,5 +1,4 @@
-import { Card, CardContent } from "@/components/ui/card";
-import { Activity, FileText, Users, Clock } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 interface AuditLogStatsProps {
   total: number;
@@ -10,68 +9,28 @@ interface AuditLogStatsProps {
   userNames: Record<string, string>;
 }
 
-export const AuditLogStats = ({ total, todayCount, weekCount, byModule, byUser, userNames }: AuditLogStatsProps) => {
-  // Top 4 modules
+export const AuditLogStats = ({ total, todayCount, weekCount, byModule }: AuditLogStatsProps) => {
   const topModules = Object.entries(byModule)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 4);
 
-  // Top 3 users
-  const topUsers = Object.entries(byUser)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 3);
-
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-      <Card>
-        <CardContent className="p-4 text-center">
-          <Activity className="h-5 w-5 mx-auto mb-1 text-muted-foreground" />
-          <div className="text-2xl font-bold">{total}</div>
-          <div className="text-xs text-muted-foreground">Total Events</div>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="p-4 text-center">
-          <Clock className="h-5 w-5 mx-auto mb-1 text-muted-foreground" />
-          <div className="text-2xl font-bold">{todayCount}</div>
-          <div className="text-xs text-muted-foreground">Today</div>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="p-4 text-center">
-          <Clock className="h-5 w-5 mx-auto mb-1 text-muted-foreground" />
-          <div className="text-2xl font-bold">{weekCount}</div>
-          <div className="text-xs text-muted-foreground">This Week</div>
-        </CardContent>
-      </Card>
-      {topModules.length > 0 && (
-        <Card>
-          <CardContent className="p-4">
-            <FileText className="h-5 w-5 mb-1 text-muted-foreground" />
-            <div className="text-xs text-muted-foreground mb-1">Top Modules</div>
-            {topModules.map(([mod, count]) => (
-              <div key={mod} className="flex justify-between text-xs">
-                <span className="truncate">{mod}</span>
-                <span className="font-semibold ml-2">{count}</span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-      {topUsers.length > 0 && (
-        <Card className="md:col-span-2">
-          <CardContent className="p-4">
-            <Users className="h-5 w-5 mb-1 text-muted-foreground" />
-            <div className="text-xs text-muted-foreground mb-1">Most Active Users</div>
-            {topUsers.map(([userId, count]) => (
-              <div key={userId} className="flex justify-between text-xs">
-                <span className="truncate">{userNames[userId] || userId.substring(0, 8)}</span>
-                <span className="font-semibold ml-2">{count}</span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
+    <div className="flex flex-wrap items-center gap-2 px-1">
+      <Badge variant="secondary" className="gap-1.5 text-xs font-medium py-1">
+        Total <span className="font-bold">{total}</span>
+      </Badge>
+      <Badge className="gap-1.5 text-xs font-medium py-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border-0">
+        Today <span className="font-bold">{todayCount}</span>
+      </Badge>
+      <Badge className="gap-1.5 text-xs font-medium py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border-0">
+        This Week <span className="font-bold">{weekCount}</span>
+      </Badge>
+      <span className="text-muted-foreground text-xs">|</span>
+      {topModules.map(([mod, count]) => (
+        <Badge key={mod} variant="outline" className="gap-1.5 text-xs font-normal py-1">
+          {mod} <span className="font-bold">{count}</span>
+        </Badge>
+      ))}
     </div>
   );
 };

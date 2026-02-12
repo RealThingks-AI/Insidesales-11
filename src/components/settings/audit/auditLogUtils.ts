@@ -190,10 +190,13 @@ export const getActivityLabel = (action: string): string => {
   return map[action] || action.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 };
 
-export type FilterCategory = 'all' | 'record_changes' | 'user_management' | 'authentication' | 'export' | 'activities';
+export type FilterCategory = 'all' | 'all_except_auth' | 'record_changes' | 'user_management' | 'authentication' | 'export' | 'activities';
 
 export const filterByCategory = (logs: AuditLog[], category: FilterCategory): AuditLog[] => {
   if (category === 'all') return logs;
+  if (category === 'all_except_auth') {
+    return logs.filter(log => !['SESSION_START', 'SESSION_END', 'user_login'].includes(log.action));
+  }
   return logs.filter(log => {
     switch (category) {
       case 'record_changes':
