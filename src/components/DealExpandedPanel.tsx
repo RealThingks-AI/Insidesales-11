@@ -223,8 +223,8 @@ const StakeholdersSection = ({ deal, queryClient }: { deal: Deal; queryClient: R
       </div>
       <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
         {stakeholders.map(({ label, field, value, setValue }) => (
-          <div key={field} className="space-y-0.5">
-            <span className="text-[10px] text-muted-foreground block">{label}</span>
+          <div key={field} className="flex items-center gap-1.5">
+            <span className="text-[10px] text-muted-foreground shrink-0">{label}</span>
             {value ? (
               <span className="inline-flex items-center gap-1 bg-muted rounded px-1.5 py-0.5 text-[10px] font-medium max-w-full">
                 <span className="truncate">{contactNames[value] || "..."}</span>
