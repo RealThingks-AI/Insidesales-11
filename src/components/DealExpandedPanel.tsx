@@ -221,10 +221,10 @@ const StakeholdersSection = ({ deal, queryClient }: { deal: Deal; queryClient: R
         <Users className="h-3.5 w-3.5 text-muted-foreground" />
         <span className="text-[11px] font-bold text-muted-foreground">Deal Related</span>
       </div>
-      <div className="grid grid-cols-2 gap-x-2 gap-y-1">
+      <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
         {stakeholders.map(({ label, field, value, setValue }) => (
-          <div key={field} className="flex flex-col gap-0.5">
-            <span className="text-[9px] text-muted-foreground leading-none">{label}</span>
+          <div key={field} className="flex items-center gap-1.5">
+            <span className="text-[10px] text-muted-foreground shrink-0">{label}</span>
             {value ? (
               <span className="inline-flex items-center gap-1 bg-muted rounded px-1.5 py-0.5 text-[10px] font-medium max-w-full">
                 <span className="truncate">{contactNames[value] || "..."}</span>
@@ -236,8 +236,8 @@ const StakeholdersSection = ({ deal, queryClient }: { deal: Deal; queryClient: R
                 selectedContactId={undefined}
                 onValueChange={() => {}}
                 onContactSelect={(contact: Contact) => { setValue(contact.id); handleStakeholderChange(field, contact.id, contact.contact_name); }}
-                placeholder="+ Add"
-                className="h-5 text-[9px] border-dashed px-1.5 py-0 min-w-0 w-full"
+                placeholder={`+ Add`}
+                className="h-6 text-[10px] border-dashed w-full"
               />
             )}
           </div>
