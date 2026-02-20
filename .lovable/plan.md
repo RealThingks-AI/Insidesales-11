@@ -1,68 +1,94 @@
 
+## Deal Related Section - 3 Improvements
 
-## Add Deal Stakeholders Section to Info Details Panel
+### Current State
+- 4 large dropdowns in a 2x2 grid, each taking full height with no selected state visibility
+- Order: Budget Owner | Champion | Objector | Influencer
+- When a contact is selected, the name shows inside the dropdown button but is truncated and hard to read
+- The dropdowns are tall with lots of padding, making the section bulky
 
-### Overview
-Add a new "Stakeholders" section at the top of the Deal Expanded Panel (Info Details) with four contact dropdown fields: Budget Owner, Champion, Objector, and Influencer. The layout becomes three sections instead of two.
+### Changes Required
 
-### Database Changes
+**1. More Compact Layout**
+- Reduce the section to a tighter inline layout
+- Use a horizontal row-based design: label on the left, value/selector on the right
+- Each row is only as tall as needed (~28px)
+- Replace full-width dropdowns with compact inline selectors
+- Render the section as 4 rows in a dense list, not a 2x2 grid of dropdowns
 
-**Add 4 new columns to the `deals` table** (all nullable UUID columns referencing contacts):
-- `budget_owner_contact_id` (uuid, nullable)
-- `champion_contact_id` (uuid, nullable)  
-- `objector_contact_id` (uuid, nullable)
-- `influencer_contact_id` (uuid, nullable)
+**2. Swap Objector ↔ Influencer**
+- Current order: Budget Owner, Champion, Objector, Influencer
+- New order: Budget Owner, Champion, Influencer, Objector
+- Simple array reorder in the `stakeholders` array (lines 211-216)
 
-A new migration file will be created to add these columns.
+**3. Selected Contact Shown as Visible Name Badge**
+The DB stores a single UUID per role — so each role can have one contact. The problem is that once selected, the name is hidden inside a truncated dropdown button. The fix:
+- When a contact IS selected: show their name as a small badge/chip with an `×` button to remove, next to the role label
+- When no contact selected: show a compact `+ Add` button that opens the contact picker popover
+- This makes selections immediately visible and easy to manage
 
-### UI Changes
+### Visual Design (After)
+
+```text
+Deal Related
+Budget Owner  [John Smith ×]
+Champion      [+ Add]
+Influencer    [Sarah Lee ×]
+Objector      [+ Add]
+```
+
+Each row:
+- Left: role label (text-[10px] muted)
+- Right: Either a name chip with ×, or a small "+ Add" button that triggers the contact picker popover
+
+### Technical Changes
 
 **File: `src/components/DealExpandedPanel.tsx`**
 
-Restructure the panel content from 2 sections to 3 sections:
+**StakeholdersSection component (lines 178-248):**
 
-```text
-Section 1: Stakeholders (NEW)
-  - 2x2 grid of contact dropdowns
-  - Budget Owner | Champion
-  - Objector     | Influencer
-  - Each uses ContactSearchableDropdown
-  - Auto-saves on selection (immediate DB update)
+1. Reorder the `stakeholders` array: Budget Owner → Champion → Influencer → Objector
 
-Section 2: Updates (existing, moved down)
-  - No changes to logic, just position
+2. Replace the 2x2 grid layout with a compact vertical list:
 
-Section 3: Action Items (existing)
-  - No changes
+```tsx
+<div className="px-2 pt-1.5 pb-1">
+  <div className="flex items-center gap-1.5 mb-1.5">
+    <Users className="h-3.5 w-3.5 text-muted-foreground" />
+    <span className="text-[11px] font-bold text-muted-foreground">Deal Related</span>
+  </div>
+  <div className="space-y-1">
+    {stakeholders.map(({ label, field, value, setValue }) => (
+      <div key={field} className="flex items-center gap-2 min-h-[24px]">
+        <span className="text-[10px] text-muted-foreground w-[90px] shrink-0">{label}</span>
+        {value ? (
+          <div className="flex items-center gap-1 flex-wrap">
+            <span className="inline-flex items-center gap-1 bg-muted rounded px-1.5 py-0.5 text-[10px] font-medium max-w-[160px]">
+              <span className="truncate">{contactNames[value] || "..."}</span>
+              <X className="h-2.5 w-2.5 cursor-pointer opacity-60 hover:opacity-100 shrink-0" onClick={() => { setValue(""); handleStakeholderChange(field, null, ""); }} />
+            </span>
+          </div>
+        ) : (
+          <ContactSearchableDropdown
+            value=""
+            selectedContactId={undefined}
+            onValueChange={() => {}}
+            onContactSelect={(contact) => { setValue(contact.id); handleStakeholderChange(field, contact.id, contact.contact_name); }}
+            placeholder={`+ Add ${label}`}
+            className="h-6 text-[10px] border-dashed px-2 text-muted-foreground w-auto min-w-[100px]"
+          />
+        )}
+      </div>
+    ))}
+  </div>
+</div>
 ```
 
-- Import `ContactSearchableDropdown` component
-- Add state for each stakeholder field, initialized from `deal` props
-- Each dropdown change triggers a Supabase update to the deals table and invalidates the deals query
-- Reduce the height of Updates and Action Items sections slightly (from `h-[280px]` to `h-[220px]`) to accommodate the new section without overflow
-- The stakeholders section uses a compact 2-column grid layout with small labels
+This design:
+- Compact rows replace the 2x2 grid
+- Selected contacts show as removable chips (name is fully visible, not truncated in a full-width button)
+- Empty slots show a small "+ Add Role" dashed button that opens the picker
+- The picker only appears when needed, keeping the UI clean
 
-### Type Changes
-
-**File: `src/types/deal.ts`**
-- Add the 4 new optional fields to the `Deal` interface:
-  - `budget_owner_contact_id?: string`
-  - `champion_contact_id?: string`
-  - `objector_contact_id?: string`
-  - `influencer_contact_id?: string`
-
-### Technical Details
-
-| File | Change |
-|------|--------|
-| `supabase/migrations/[timestamp].sql` | Add 4 UUID columns to deals table |
-| `src/types/deal.ts` | Add 4 fields to Deal interface |
-| `src/components/DealExpandedPanel.tsx` | Add stakeholders section with ContactSearchableDropdown, reorder sections |
-| `src/integrations/supabase/types.ts` | Will auto-update after migration |
-
-### Behavior
-- When a contact is selected in any stakeholder dropdown, it immediately saves the contact ID to the deals table
-- The "X" clear button removes the association
-- Contact names are displayed based on the selected contact's `contact_name`
-- All four fields are optional and independent
-
+### Files to Modify
+- `src/components/DealExpandedPanel.tsx` — Update `StakeholdersSection` component (lines 178-248)
