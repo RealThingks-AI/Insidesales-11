@@ -216,18 +216,18 @@ const StakeholdersSection = ({ deal, queryClient }: { deal: Deal; queryClient: R
   ];
 
   return (
-    <div className="px-2 pt-1.5 pb-2">
-      <div className="flex items-center gap-1.5 mb-2">
+    <div className="px-2 pt-1.5 pb-1">
+      <div className="flex items-center gap-1.5 mb-1.5">
         <Users className="h-3.5 w-3.5 text-muted-foreground" />
         <span className="text-[11px] font-bold text-muted-foreground">Deal Related</span>
       </div>
-      <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+      <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
         {stakeholders.map(({ label, field, value, setValue }) => (
-          <div key={field} className="flex flex-col gap-0.5">
-            <span className="text-[9px] font-medium text-muted-foreground uppercase tracking-wide">{label}</span>
+          <div key={field} className="flex items-center gap-1.5">
+            <span className="text-[10px] text-muted-foreground shrink-0">{label}</span>
             {value ? (
-              <span className="inline-flex items-center gap-1 bg-muted rounded px-1.5 py-0.5 text-[10px] font-medium w-full min-w-0">
-                <span className="truncate flex-1">{contactNames[value] || "..."}</span>
+              <span className="inline-flex items-center gap-1 bg-muted rounded px-1.5 py-0.5 text-[10px] font-medium max-w-full">
+                <span className="truncate">{contactNames[value] || "..."}</span>
                 <X className="h-2.5 w-2.5 cursor-pointer opacity-60 hover:opacity-100 shrink-0" onClick={() => { setValue(""); handleStakeholderChange(field, null, ""); }} />
               </span>
             ) : (
@@ -236,7 +236,7 @@ const StakeholdersSection = ({ deal, queryClient }: { deal: Deal; queryClient: R
                 selectedContactId={undefined}
                 onValueChange={() => {}}
                 onContactSelect={(contact: Contact) => { setValue(contact.id); handleStakeholderChange(field, contact.id, contact.contact_name); }}
-                placeholder="+ Add"
+                placeholder={`+ Add`}
                 className="h-6 text-[10px] border-dashed w-full"
               />
             )}
