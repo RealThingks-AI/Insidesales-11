@@ -1,7 +1,32 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { X, Plus, Clock, History, ListTodo, ChevronDown, ChevronRight, Eye, ArrowRight, Check, MessageSquarePlus, Phone, Mail, Calendar, FileText, User, MoreHorizontal, Handshake } from "lucide-react";
+import {
+  X,
+  Plus,
+  Clock,
+  History,
+  ListTodo,
+  ChevronDown,
+  ChevronRight,
+  Eye,
+  ArrowRight,
+  Check,
+  MessageSquarePlus,
+  Phone,
+  Mail,
+  Calendar,
+  FileText,
+  User,
+  MoreHorizontal,
+  Handshake } from
+"lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator } from
+"@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useAllUsers } from "@/hooks/useUserDisplayNames";
 import { Button } from "@/components/ui/button";
@@ -20,6 +45,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { useUserDisplayNames } from "@/hooks/useUserDisplayNames";
 import { useAuth } from "@/hooks/useAuth";
+import { ContactSearchableDropdown, Contact } from "@/components/ContactSearchableDropdown";
+import { Users } from "lucide-react";
 
 interface DealExpandedPanelProps {
   deal: Deal;
@@ -50,22 +77,20 @@ interface ActionItem {
 }
 
 // Log types with icons
-const LOG_TYPES = [
-{ value: 'Note', label: 'Note', icon: FileText }] as
-const;
+const LOG_TYPES = [{ value: "Note", label: "Note", icon: FileText }] as const;
 
-type LogType = typeof LOG_TYPES[number]['value'];
+type LogType = (typeof LOG_TYPES)[number]["value"];
 
 // Format date/time for table display: HH:mm dd-MM-yy
 const formatHistoryDateTime = (date: Date): string => {
-  return format(date, 'HH:mm dd-MM-yy');
+  return format(date, "HH:mm dd-MM-yy");
 };
 
 // Format a value for display
 const formatValue = (value: unknown): string => {
-  if (value === null || value === undefined || value === '') return '-';
-  if (typeof value === 'object') {
-    return '[See details]';
+  if (value === null || value === undefined || value === "") return "-";
+  if (typeof value === "object") {
+    return "[See details]";
   }
   return String(value);
 };
@@ -81,11 +106,11 @@ const parseFieldChanges = (details: Record<string, unknown> | null): FieldChange
   if (!details) return [];
 
   const fieldChanges = details.field_changes as Record<string, {old: unknown;new: unknown;}> | undefined;
-  if (fieldChanges && typeof fieldChanges === 'object') {
+  if (fieldChanges && typeof fieldChanges === "object") {
     return Object.entries(fieldChanges).
-    filter(([key]) => !['modified_at', 'modified_by', 'id'].includes(key)).
+    filter(([key]) => !["modified_at", "modified_by", "id"].includes(key)).
     map(([field, change]) => ({
-      field: field.replace(/_/g, ' '),
+      field: field.replace(/_/g, " "),
       oldValue: formatValue(change?.old),
       newValue: formatValue(change?.new)
     }));
@@ -96,39 +121,49 @@ const parseFieldChanges = (details: Record<string, unknown> | null): FieldChange
 
   if (updatedFields && oldData) {
     return Object.keys(updatedFields).
-    filter((key) => !['modified_at', 'modified_by', 'id'].includes(key)).
+    filter((key) => !["modified_at", "modified_by", "id"].includes(key)).
     map((field) => ({
-      field: field.replace(/_/g, ' '),
+      field: field.replace(/_/g, " "),
       oldValue: formatValue(oldData[field]),
       newValue: formatValue(updatedFields[field])
     }));
   }
 
   return Object.entries(details).
-  filter(([key, value]) =>
-  !['modified_at', 'modified_by', 'id', 'field_changes', 'old_data', 'updated_fields', 'record_data', 'timestamp'].includes(key) && (
-  typeof value !== 'object' || value === null)
+  filter(
+    ([key, value]) =>
+    ![
+    "modified_at",
+    "modified_by",
+    "id",
+    "field_changes",
+    "old_data",
+    "updated_fields",
+    "record_data",
+    "timestamp"].
+    includes(key) && (
+    typeof value !== "object" || value === null)
   ).
   map(([field, value]) => ({
-    field: field.replace(/_/g, ' '),
-    oldValue: '-',
+    field: field.replace(/_/g, " "),
+    oldValue: "-",
     newValue: formatValue(value)
   }));
 };
 
 // Parse audit log details to show human-readable summary
 const parseChangeSummary = (action: string, details: Record<string, unknown> | null): string => {
-  if (!details || typeof details !== 'object') return action === 'create' ? 'Created deal' : action;
+  if (!details || typeof details !== "object") return action === "create" ? "Created deal" : action;
 
   // If there's already a formatted message (from manual action item logs), use it
-  if (details.message && typeof details.message === 'string') {
+  if (details.message && typeof details.message === "string") {
     return details.message;
   }
 
   const changes = parseFieldChanges(details);
-  if (changes.length === 0) return action === 'create' ? 'Created deal' : 'Updated';
+  if (changes.length === 0) return action === "create" ? "Created deal" : "Updated";
 
-  const stageChange = changes.find((c) => c.field === 'stage');
+  const stageChange = changes.find((c) => c.field === "stage");
   if (stageChange) {
     return `${stageChange.oldValue} → ${stageChange.newValue}`;
   }
@@ -140,7 +175,86 @@ const parseChangeSummary = (action: string, details: Record<string, unknown> | n
   return `${first.field} +${changes.length - 1}`;
 };
 
-export const DealExpandedPanel = ({ deal, onClose, onOpenActionItemModal, addDetailOpen: externalAddDetailOpen, onAddDetailOpenChange }: DealExpandedPanelProps) => {
+// Stakeholders Section Component
+const StakeholdersSection = ({ deal, queryClient }: { deal: Deal; queryClient: ReturnType<typeof useQueryClient> }) => {
+  const [budgetOwner, setBudgetOwner] = useState<string>(deal.budget_owner_contact_id || "");
+  const [champion, setChampion] = useState<string>(deal.champion_contact_id || "");
+  const [objector, setObjector] = useState<string>(deal.objector_contact_id || "");
+  const [influencer, setInfluencer] = useState<string>(deal.influencer_contact_id || "");
+  const [contactNames, setContactNames] = useState<Record<string, string>>({});
+
+  // Fetch contact names for existing stakeholder IDs
+  useEffect(() => {
+    const ids = [deal.budget_owner_contact_id, deal.champion_contact_id, deal.objector_contact_id, deal.influencer_contact_id].filter(Boolean) as string[];
+    if (ids.length === 0) return;
+    
+    const fetchNames = async () => {
+      const { data } = await supabase.from("contacts").select("id, contact_name").in("id", ids);
+      if (data) {
+        const names: Record<string, string> = {};
+        data.forEach(c => { names[c.id] = c.contact_name; });
+        setContactNames(names);
+      }
+    };
+    fetchNames();
+  }, [deal.budget_owner_contact_id, deal.champion_contact_id, deal.objector_contact_id, deal.influencer_contact_id]);
+
+  const handleStakeholderChange = async (field: string, contactId: string | null, contactName: string) => {
+    const update: Record<string, any> = { [field]: contactId, modified_at: new Date().toISOString() };
+    await supabase.from("deals").update(update).eq("id", deal.id);
+    queryClient.invalidateQueries({ queryKey: ["deals"] });
+    if (contactId) {
+      setContactNames(prev => ({ ...prev, [contactId]: contactName }));
+    }
+  };
+
+  const stakeholders = [
+    { label: "Budget Owner", field: "budget_owner_contact_id", value: budgetOwner, setValue: setBudgetOwner },
+    { label: "Champion", field: "champion_contact_id", value: champion, setValue: setChampion },
+    { label: "Objector", field: "objector_contact_id", value: objector, setValue: setObjector },
+    { label: "Influencer", field: "influencer_contact_id", value: influencer, setValue: setInfluencer },
+  ];
+
+  return (
+    <div className="px-2 pt-2 pb-1">
+      <div className="flex items-center gap-1.5 mb-2">
+        <Users className="h-3.5 w-3.5 text-muted-foreground" />
+        <span className="text-[11px] font-bold text-muted-foreground">Deal Related</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {stakeholders.map(({ label, field, value, setValue }) => (
+          <div key={field} className="space-y-0.5">
+            <Label className="text-[10px] text-muted-foreground">{label}</Label>
+            <ContactSearchableDropdown
+              value={value ? (contactNames[value] || "") : ""}
+              selectedContactId={value || undefined}
+              onValueChange={(val) => {
+                if (!val) {
+                  setValue("");
+                  handleStakeholderChange(field, null, "");
+                }
+              }}
+              onContactSelect={(contact: Contact) => {
+                setValue(contact.id);
+                handleStakeholderChange(field, contact.id, contact.contact_name);
+              }}
+              placeholder={`Select ${label.toLowerCase()}...`}
+              className="h-7 text-xs"
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export const DealExpandedPanel = ({
+  deal,
+  onClose,
+  onOpenActionItemModal,
+  addDetailOpen: externalAddDetailOpen,
+  onAddDetailOpenChange
+}: DealExpandedPanelProps) => {
   const { user } = useAuth();
   const [detailLogId, setDetailLogId] = useState<string | null>(null);
   const queryClient = useQueryClient();
@@ -149,20 +263,26 @@ export const DealExpandedPanel = ({ deal, onClose, onOpenActionItemModal, addDet
   const [internalAddDetailOpen, setInternalAddDetailOpen] = useState(false);
   const addDetailOpen = externalAddDetailOpen !== undefined ? externalAddDetailOpen : internalAddDetailOpen;
   const setAddDetailOpen = (open: boolean) => {
+    if (!open) setAddDetailFromSection(null);
     if (onAddDetailOpenChange) onAddDetailOpenChange(open);else
     setInternalAddDetailOpen(open);
   };
-  const [addDetailType, setAddDetailType] = useState<'log' | 'action_item'>('log');
-  const [logType, setLogType] = useState<LogType>('Note');
-  const [logMessage, setLogMessage] = useState('');
+  const [addDetailType, setAddDetailType] = useState<"log" | "action_item">("log");
+  const [addDetailFromSection, setAddDetailFromSection] = useState<null | "log" | "action_item">(null);
+  const [logType, setLogType] = useState<LogType>("Note");
+  const [logMessage, setLogMessage] = useState("");
   const [isSavingLog, setIsSavingLog] = useState(false);
 
   // Action item fields for unified modal
-  const [actionTitle, setActionTitle] = useState('');
-  const [actionAssignedTo, setActionAssignedTo] = useState<string>('unassigned');
-  const [actionDueDate, setActionDueDate] = useState('');
-  const [actionPriority, setActionPriority] = useState('Medium');
-  const [actionStatus, setActionStatus] = useState('Open');
+  const [actionTitle, setActionTitle] = useState("");
+  const [actionAssignedTo, setActionAssignedTo] = useState<string>(user?.id || "unassigned");
+  const [actionDueDate, setActionDueDate] = useState(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return format(tomorrow, "yyyy-MM-dd");
+  });
+  const [actionPriority, setActionPriority] = useState("Low");
+  const [actionStatus, setActionStatus] = useState("Open");
   const [moreOptionsOpen, setMoreOptionsOpen] = useState(false);
 
   // Action items inline editing state
@@ -176,18 +296,18 @@ export const DealExpandedPanel = ({ deal, onClose, onOpenActionItemModal, addDet
 
   // Fetch audit logs for the deal - ascending order (newest at bottom)
   const { data: auditLogs = [], isLoading: logsLoading } = useQuery({
-    queryKey: ['deal-audit-logs', deal.id],
+    queryKey: ["deal-audit-logs", deal.id],
     queryFn: async () => {
       const { data, error } = await supabase.
-      from('security_audit_log').
-      select('*').
-      eq('resource_type', 'deals').
-      eq('resource_id', deal.id).
-      order('created_at', { ascending: true }).
+      from("security_audit_log").
+      select("*").
+      eq("resource_type", "deals").
+      eq("resource_id", deal.id).
+      order("created_at", { ascending: true }).
       limit(50);
 
       if (error) {
-        console.error('Error fetching deal audit logs:', error);
+        console.error("Error fetching deal audit logs:", error);
         return [];
       }
 
@@ -198,17 +318,17 @@ export const DealExpandedPanel = ({ deal, onClose, onOpenActionItemModal, addDet
 
   // Fetch action items from unified action_items table
   const { data: actionItems = [], isLoading: itemsLoading } = useQuery({
-    queryKey: ['deal-action-items-unified', deal.id],
+    queryKey: ["deal-action-items-unified", deal.id],
     queryFn: async () => {
       const { data, error } = await supabase.
-      from('action_items').
-      select('*').
-      eq('module_type', 'deals').
-      eq('module_id', deal.id).
-      order('created_at', { ascending: true });
+      from("action_items").
+      select("*").
+      eq("module_type", "deals").
+      eq("module_id", deal.id).
+      order("created_at", { ascending: true });
 
       if (error) {
-        console.error('Error fetching deal action items:', error);
+        console.error("Error fetching deal action items:", error);
         return [];
       }
 
@@ -232,7 +352,7 @@ export const DealExpandedPanel = ({ deal, onClose, onOpenActionItemModal, addDet
 
   // Auto-refresh history logs when panel opens
   useEffect(() => {
-    queryClient.invalidateQueries({ queryKey: ['deal-audit-logs', deal.id] });
+    queryClient.invalidateQueries({ queryKey: ["deal-audit-logs", deal.id] });
   }, [deal.id, queryClient]);
 
   // Filter history: only manual logs and action item status changes
@@ -245,11 +365,11 @@ export const DealExpandedPanel = ({ deal, onClose, onOpenActionItemModal, addDet
 
   // Split action items: active vs completed
   const activeActionItems = useMemo(() => {
-    return actionItems.filter((item) => item.status === 'Open' || item.status === 'In Progress');
+    return actionItems.filter((item) => item.status === "Open" || item.status === "In Progress");
   }, [actionItems]);
 
   const completedActionItems = useMemo(() => {
-    return actionItems.filter((item) => item.status === 'Completed' || item.status === 'Cancelled');
+    return actionItems.filter((item) => item.status === "Completed" || item.status === "Cancelled");
   }, [actionItems]);
 
   // Merged history: manual logs + completed action items, sorted ascending
@@ -257,12 +377,12 @@ export const DealExpandedPanel = ({ deal, onClose, onOpenActionItemModal, addDet
     const mappedLogs = manualAndStatusLogs.map((log) => {
       const details = log.details as any;
       let message = details?.message || parseChangeSummary(log.action, log.details);
-      
+
       // Override with action item title + new status for both old and new format logs
       if (details?.action_item_title && details?.field_changes?.status) {
         message = `${details.action_item_title} → ${details.field_changes.status.new}`;
       }
-      
+
       return {
         id: log.id,
         message,
@@ -273,8 +393,7 @@ export const DealExpandedPanel = ({ deal, onClose, onOpenActionItemModal, addDet
       };
     });
 
-    return [...mappedLogs].
-    sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    return [...mappedLogs].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
   }, [manualAndStatusLogs]);
 
   // Auto-scroll both sections to bottom when data changes
@@ -295,11 +414,9 @@ export const DealExpandedPanel = ({ deal, onClose, onOpenActionItemModal, addDet
 
     setIsSavingLog(true);
     try {
-      const { error } = await supabase.
-      from('security_audit_log').
-      insert({
+      const { error } = await supabase.from("security_audit_log").insert({
         action: logType.toUpperCase(),
-        resource_type: 'deals',
+        resource_type: "deals",
         resource_id: deal.id,
         user_id: user.id,
         details: {
@@ -311,13 +428,13 @@ export const DealExpandedPanel = ({ deal, onClose, onOpenActionItemModal, addDet
 
       if (error) throw error;
 
-      queryClient.invalidateQueries({ queryKey: ['deal-audit-logs', deal.id] });
+      queryClient.invalidateQueries({ queryKey: ["deal-audit-logs", deal.id] });
 
-      setLogMessage('');
-      setLogType('Note');
+      setLogMessage("");
+      setLogType("Note");
       setAddDetailOpen(false);
     } catch (error) {
-      console.error('Error adding log:', error);
+      console.error("Error adding log:", error);
     } finally {
       setIsSavingLog(false);
     }
@@ -329,14 +446,12 @@ export const DealExpandedPanel = ({ deal, onClose, onOpenActionItemModal, addDet
 
     setIsSavingLog(true);
     try {
-      const { error } = await supabase.
-      from('action_items').
-      insert({
+      const { error } = await supabase.from("action_items").insert({
         title: actionTitle.trim(),
-        module_type: 'deals',
+        module_type: "deals",
         module_id: deal.id,
         created_by: user.id,
-        assigned_to: actionAssignedTo === 'unassigned' ? null : actionAssignedTo,
+        assigned_to: actionAssignedTo === "unassigned" ? null : actionAssignedTo,
         due_date: actionDueDate || null,
         priority: actionPriority,
         status: actionStatus
@@ -344,25 +459,27 @@ export const DealExpandedPanel = ({ deal, onClose, onOpenActionItemModal, addDet
 
       if (error) throw error;
 
-      queryClient.invalidateQueries({ queryKey: ['deal-action-items-unified', deal.id] });
+      queryClient.invalidateQueries({ queryKey: ["deal-action-items-unified", deal.id] });
 
       // Reset form
-      setActionTitle('');
-      setActionAssignedTo('unassigned');
-      setActionDueDate('');
-      setActionPriority('Medium');
-      setActionStatus('Open');
+      setActionTitle("");
+      setActionAssignedTo(user?.id || "unassigned");
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      setActionDueDate(format(tomorrow, "yyyy-MM-dd"));
+      setActionPriority("Low");
+      setActionStatus("Open");
       setMoreOptionsOpen(false);
       setAddDetailOpen(false);
     } catch (error) {
-      console.error('Error adding action item:', error);
+      console.error("Error adding action item:", error);
     } finally {
       setIsSavingLog(false);
     }
   };
 
   const handleSaveDetail = () => {
-    if (addDetailType === 'log') {
+    if (addDetailType === "log") {
       handleAddLog();
     } else {
       handleAddActionItem();
@@ -370,63 +487,91 @@ export const DealExpandedPanel = ({ deal, onClose, onOpenActionItemModal, addDet
   };
 
   const statusDotColor: Record<string, string> = {
-    'Open': 'bg-blue-500',
-    'In Progress': 'bg-yellow-500',
-    'Completed': 'bg-green-500',
-    'Cancelled': 'bg-muted-foreground'
+    Open: "bg-blue-500",
+    "In Progress": "bg-yellow-500",
+    Completed: "bg-green-500",
+    Cancelled: "bg-muted-foreground"
   };
 
   // Hidden internal fields
-  const HIDDEN_FIELDS = new Set(['id', 'created_by', 'modified_by', 'account_id']);
+  const HIDDEN_FIELDS = new Set(["id", "created_by", "modified_by", "account_id"]);
 
-  const toTitleCase = (key: string) => key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  const toTitleCase = (key: string) => key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
   const isUUID = (val: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
 
   const formatDetailValue = (key: string, val: any): string => {
-    if (val === null || val === undefined) return '--';
-    if (typeof val === 'string' && val.match(/^\d{4}-\d{2}-\d{2}(T|\s)/)) {
-      try {return format(new Date(val), 'MMM d, yyyy h:mm a');} catch {return val;}
+    if (val === null || val === undefined) return "--";
+    if (typeof val === "string" && val.match(/^\d{4}-\d{2}-\d{2}(T|\s)/)) {
+      try {
+        return format(new Date(val), "MMM d, yyyy h:mm a");
+      } catch {
+        return val;
+      }
     }
-    if (typeof val === 'string' && val.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      try {return format(new Date(val + 'T00:00:00'), 'MMM d, yyyy');} catch {return val;}
+    if (typeof val === "string" && val.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      try {
+        return format(new Date(val + "T00:00:00"), "MMM d, yyyy");
+      } catch {
+        return val;
+      }
     }
-    if (typeof val === 'string' && isUUID(val)) return val.slice(0, 8) + '…';
-    if (typeof val === 'number' && (key.includes('revenue') || key.includes('contract_value') || key === 'budget')) return val.toLocaleString();
-    if (typeof val === 'number' && key === 'probability') return `${val}%`;
+    if (typeof val === "string" && isUUID(val)) return val.slice(0, 8) + "…";
+    if (typeof val === "number" && (key.includes("revenue") || key.includes("contract_value") || key === "budget"))
+    return val.toLocaleString();
+    if (typeof val === "number" && key === "probability") return `${val}%`;
     return String(val);
   };
 
   const renderFormattedDetails = (details: any) => {
-    if (!details || typeof details !== 'object') return null;
+    if (!details || typeof details !== "object") return null;
 
-    const { module, status, operation, timestamp, field_changes, old_data, updated_fields, record_data, ...rest } = details;
+    const { module, status, operation, timestamp, field_changes, old_data, updated_fields, record_data, ...rest } =
+    details;
 
     const remainingObjectData = Object.fromEntries(
-      Object.entries(rest).filter(([, v]) => v !== null && v !== undefined && typeof v !== 'object')
+      Object.entries(rest).filter(([, v]) => v !== null && v !== undefined && typeof v !== "object")
     );
-    const recordData = record_data || old_data || updated_fields || (Object.keys(remainingObjectData).length > 0 ? remainingObjectData : null);
+    const recordData =
+    record_data ||
+    old_data ||
+    updated_fields || (
+    Object.keys(remainingObjectData).length > 0 ? remainingObjectData : null);
 
     return (
       <div className="space-y-3">
         {(module || status || operation) &&
         <div className="flex flex-wrap gap-2 items-center">
-            {module && <Badge variant="outline" className="text-xs">{module}</Badge>}
-            {operation && <Badge variant="secondary" className="text-xs">{operation}</Badge>}
+            {module &&
+          <Badge variant="outline" className="text-xs">
+                {module}
+              </Badge>
+          }
+            {operation &&
+          <Badge variant="secondary" className="text-xs">
+                {operation}
+              </Badge>
+          }
             {status &&
-          <Badge variant={status === 'Success' ? 'default' : 'destructive'} className="text-xs">
+          <Badge variant={status === "Success" ? "default" : "destructive"} className="text-xs">
                 {status}
               </Badge>
           }
             {timestamp &&
           <span className="text-xs text-muted-foreground ml-auto">
-                {(() => {try {return format(new Date(timestamp), 'MMM d, yyyy h:mm a');} catch {return timestamp;}})()}
+                {(() => {
+              try {
+                return format(new Date(timestamp), "MMM d, yyyy h:mm a");
+              } catch {
+                return timestamp;
+              }
+            })()}
               </span>
           }
           </div>
         }
 
-        {field_changes && typeof field_changes === 'object' && Object.keys(field_changes).length > 0 &&
+        {field_changes && typeof field_changes === "object" && Object.keys(field_changes).length > 0 &&
         <div>
             <span className="text-xs font-medium text-muted-foreground block mb-1">Field Changes</span>
             <div className="rounded-md border border-border/50 overflow-hidden">
@@ -449,7 +594,9 @@ export const DealExpandedPanel = ({ deal, onClose, onOpenActionItemModal, addDet
                         <TableCell className="py-1.5 px-1 w-[20px]">
                           <ArrowRight className="h-3 w-3 text-muted-foreground" />
                         </TableCell>
-                        <TableCell className="py-1.5 px-2 text-xs font-medium">{formatDetailValue(key, change?.new)}</TableCell>
+                        <TableCell className="py-1.5 px-2 text-xs font-medium">
+                          {formatDetailValue(key, change?.new)}
+                        </TableCell>
                       </TableRow>
                 )}
                 </TableBody>
@@ -458,7 +605,7 @@ export const DealExpandedPanel = ({ deal, onClose, onOpenActionItemModal, addDet
           </div>
         }
 
-        {recordData && typeof recordData === 'object' &&
+        {recordData && typeof recordData === "object" &&
         <div>
             <span className="text-xs font-medium text-muted-foreground block mb-1">Record Snapshot</span>
             <div className="rounded-md border border-border/50 bg-muted/10 p-2 space-y-1 max-h-48 overflow-auto">
@@ -481,47 +628,52 @@ export const DealExpandedPanel = ({ deal, onClose, onOpenActionItemModal, addDet
 
   // Inline update handlers for action items
   const invalidateActionItems = () => {
-    queryClient.invalidateQueries({ queryKey: ['deal-action-items-unified', deal.id] });
+    queryClient.invalidateQueries({ queryKey: ["deal-action-items-unified", deal.id] });
   };
 
   const handleStatusChange = async (id: string, status: string) => {
     const item = actionItems.find((i) => i.id === id);
-    await supabase.from('action_items').update({ status, updated_at: new Date().toISOString() }).eq('id', id);
+    await supabase.from("action_items").update({ status, updated_at: new Date().toISOString() }).eq("id", id);
 
-    // Log status change in history with new format: "TaskTitle → NewStatus"
-    try {
-      await supabase.from('security_audit_log').insert({
-        action: 'update',
-        resource_type: 'deals',
-        resource_id: deal.id,
-        user_id: user?.id,
-        details: {
-          message: `${item?.title} → ${status}`,
-          field_changes: { status: { old: item?.status, new: status } },
-          action_item_id: id,
-          action_item_title: item?.title
-        }
-      });
-    } catch (e) {
-      console.error('Failed to log status change:', e);
+    // Only log to history when completed or cancelled
+    if (status === "Completed" || status === "Cancelled") {
+      try {
+        await supabase.from("security_audit_log").insert({
+          action: "update",
+          resource_type: "deals",
+          resource_id: deal.id,
+          user_id: user?.id,
+          details: {
+            message: `${item?.title} → ${status}`,
+            field_changes: { status: { old: item?.status, new: status } },
+            action_item_id: id,
+            action_item_title: item?.title
+          }
+        });
+      } catch (e) {
+        console.error("Failed to log status change:", e);
+      }
+      queryClient.invalidateQueries({ queryKey: ["deal-audit-logs", deal.id] });
     }
 
     invalidateActionItems();
-    queryClient.invalidateQueries({ queryKey: ['deal-audit-logs', deal.id] });
   };
 
   const handleAssignedToChange = async (id: string, userId: string | null) => {
-    await supabase.from('action_items').update({ assigned_to: userId, updated_at: new Date().toISOString() }).eq('id', id);
+    await supabase.
+    from("action_items").
+    update({ assigned_to: userId, updated_at: new Date().toISOString() }).
+    eq("id", id);
     invalidateActionItems();
   };
 
   const handleDueDateChange = async (id: string, date: string | null) => {
-    await supabase.from('action_items').update({ due_date: date, updated_at: new Date().toISOString() }).eq('id', id);
+    await supabase.from("action_items").update({ due_date: date, updated_at: new Date().toISOString() }).eq("id", id);
     invalidateActionItems();
   };
 
   const handleDeleteActionItem = async (id: string) => {
-    await supabase.from('action_items').delete().eq('id', id);
+    await supabase.from("action_items").delete().eq("id", id);
     invalidateActionItems();
   };
 
@@ -540,13 +692,16 @@ export const DealExpandedPanel = ({ deal, onClose, onOpenActionItemModal, addDet
     <>
       <div
         className="h-full w-full bg-card border border-border/50 rounded-lg shadow-lg flex flex-col overflow-hidden"
-        onKeyDown={(e) => e.key === 'Escape' && onClose()}>
+        onKeyDown={(e) => e.key === "Escape" && onClose()}>
 
         {/* Content */}
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden gap-1">
+          {/* Stakeholders Section */}
+          <StakeholdersSection deal={deal} queryClient={queryClient} />
+
           {/* History Section */}
-          <div className="flex flex-col flex-1 min-h-0">
-            <div className="h-[280px] overflow-y-auto" ref={historyScrollRef}>
+          <div className="flex flex-col flex-1 min-h-0 relative">
+            <div className="h-[220px] overflow-y-auto relative" ref={historyScrollRef}>
               {isLoading ?
               <div className="flex items-center justify-center py-6">
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
@@ -555,11 +710,17 @@ export const DealExpandedPanel = ({ deal, onClose, onOpenActionItemModal, addDet
               <Table>
                   <TableHeader className="sticky top-0 z-10 bg-card">
                     <TableRow className="text-[11px] bg-muted/50">
-                      <TableHead className="h-7 px-1 text-[11px] font-bold text-center" style={{ width: '3%' }}>#</TableHead>
-                      <TableHead className="h-7 px-2 text-[11px] font-bold" style={{ width: '74%' }}>Changes</TableHead>
-                      <TableHead className="h-7 px-2 text-[11px] font-bold" style={{ width: '10%' }}>By</TableHead>
-                      <TableHead className="h-7 px-2 text-[11px] font-bold" style={{ width: '10%' }}>Time</TableHead>
-                      <TableHead className="h-7 px-1" style={{ width: '3%' }}></TableHead>
+                      <TableHead className="h-7 px-1" style={{ width: "3%" }}></TableHead>
+                      <TableHead className="h-7 px-2 text-[11px] font-bold" style={{ width: "74%" }}>
+                        Updates
+                      </TableHead>
+                      <TableHead className="h-7 px-2 text-[11px] font-bold" style={{ width: "10%" }}>
+                        By
+                      </TableHead>
+                      <TableHead className="h-7 px-2 text-[11px] font-bold" style={{ width: "10%" }}>
+                        Time
+                      </TableHead>
+                      <TableHead className="h-7 px-1" style={{ width: "3%" }}></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -575,46 +736,67 @@ export const DealExpandedPanel = ({ deal, onClose, onOpenActionItemModal, addDet
 
                   mergedHistory.map((entry, index) =>
                   <TableRow key={entry.id} className="text-xs group cursor-pointer hover:bg-muted/30">
-                        <TableCell className="py-1.5 px-1 text-[11px] text-muted-foreground text-center w-8">{index + 1}</TableCell>
-                        <TableCell className="py-1.5 px-2">
-                          {entry.originalLog ?
+                          <TableCell className="py-1.5 px-1 text-[11px] text-muted-foreground text-center">
+                            {index + 1}
+                          </TableCell>
+                          <TableCell className="py-1.5 px-2">
+                            {entry.originalLog ?
                       <button
                         onClick={() => setDetailLogId(entry.originalLog!.id)}
-                        className="hover:underline text-left whitespace-normal break-words text-[#2e538e] font-normal text-xs">
+                        className="hover:underline text-left whitespace-normal break-words text-[#2e538e] font-normal text-sm">
 
-                              {entry.message}
-                            </button> :
+                                {entry.message}
+                              </button> :
 
                       <span className="text-left whitespace-normal break-words text-xs text-muted-foreground">
-                              {entry.message}
-                            </span>
+                                {entry.message}
+                              </span>
                       }
-                        </TableCell>
-                        <TableCell className="py-1.5 px-2 text-muted-foreground whitespace-nowrap text-[11px]">
-                          {entry.user_id ? displayNames[entry.user_id] || getUserDisplayName(entry.user_id) || '...' : '-'}
-                        </TableCell>
-                        <TableCell className="py-1.5 px-2 text-[11px] text-muted-foreground whitespace-nowrap w-24">
-                          {formatHistoryDateTime(new Date(entry.created_at))}
-                        </TableCell>
-                        <TableCell onClick={(e) => e.stopPropagation()} className="py-1.5 px-1 w-8">
-                          {entry.originalLog &&
-                      <Button variant="ghost" size="sm" className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setDetailLogId(entry.originalLog!.id)}>
-                              <Eye className="h-3 w-3" />
-                            </Button>
+                          </TableCell>
+                          <TableCell className="py-1.5 px-2 text-muted-foreground whitespace-nowrap text-[11px]">
+                            {entry.user_id ?
+                      displayNames[entry.user_id] || getUserDisplayName(entry.user_id) || "..." :
+                      "-"}
+                          </TableCell>
+                          <TableCell className="py-1.5 px-2 text-[11px] text-muted-foreground whitespace-nowrap w-24">
+                            {formatHistoryDateTime(new Date(entry.created_at))}
+                          </TableCell>
+                          <TableCell onClick={(e) => e.stopPropagation()} className="py-1.5 px-1 w-8">
+                            {entry.originalLog &&
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => setDetailLogId(entry.originalLog!.id)}>
+
+                                <Eye className="h-3 w-3" />
+                              </Button>
                       }
-                        </TableCell>
-                      </TableRow>
+                          </TableCell>
+                        </TableRow>
                   )
                   }
                   </TableBody>
                 </Table>
               }
             </div>
+            <div className="flex justify-end px-2 py-1">
+              <button
+                onClick={() => {
+                  setAddDetailType("log");
+                  setAddDetailFromSection("log");
+                  setAddDetailOpen(true);
+                }}
+                className="h-7 w-7 rounded-full bg-primary text-primary-foreground shadow-md flex items-center justify-center hover:bg-primary/90 transition-colors">
+
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
-          {/* Action Items Section */}
+          {/* Action Items Section - relative for floating button */}
           <div className="flex flex-col flex-1 min-h-0">
-            <div className="h-[280px] overflow-y-auto" ref={actionItemsScrollRef}>
+            <div className="h-[220px] overflow-y-auto relative" ref={actionItemsScrollRef}>
               {isLoading ?
               <div className="flex items-center justify-center py-6">
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
@@ -623,12 +805,20 @@ export const DealExpandedPanel = ({ deal, onClose, onOpenActionItemModal, addDet
               <Table>
                   <TableHeader className="sticky top-0 z-10 bg-card">
                     <TableRow className="text-[11px] bg-muted/50">
-                      <TableHead className="h-7 px-1 text-[11px] font-bold text-center" style={{ width: '3%' }}>#</TableHead>
-                      <TableHead className="h-7 px-2 text-[11px] font-bold" style={{ width: '70%' }}>Task</TableHead>
-                      <TableHead className="h-7 px-2 text-[11px] font-bold" style={{ width: '9%' }}>Assigned</TableHead>
-                      <TableHead className="h-7 px-2 text-[11px] font-bold" style={{ width: '8%' }}>Due</TableHead>
-                      <TableHead className="h-7 px-1 text-[11px] font-bold text-center" style={{ width: '7%' }}>Status</TableHead>
-                      <TableHead className="h-7 px-1" style={{ width: '3%' }}></TableHead>
+                      <TableHead className="h-7 px-1" style={{ width: "3%" }}></TableHead>
+                      <TableHead className="h-7 px-2 text-[11px] font-bold" style={{ width: "70%" }}>
+                        Action Items
+                      </TableHead>
+                      <TableHead className="h-7 px-2 text-[11px] font-bold" style={{ width: "9%" }}>
+                        Assigned
+                      </TableHead>
+                      <TableHead className="h-7 px-2 text-[11px] font-bold" style={{ width: "8%" }}>
+                        Due
+                      </TableHead>
+                      <TableHead className="h-7 px-1 text-[11px] font-bold text-center" style={{ width: "7%" }}>
+                        Status
+                      </TableHead>
+                      <TableHead className="h-7 px-1" style={{ width: "3%" }}></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -638,17 +828,6 @@ export const DealExpandedPanel = ({ deal, onClose, onOpenActionItemModal, addDet
                           <div className="flex flex-col items-center justify-center">
                             <ListTodo className="h-4 w-4 mb-1" />
                             <span className="text-xs">No active action items</span>
-                            <Button
-                          variant="link"
-                          size="sm"
-                          className="text-xs h-6 mt-1"
-                          onClick={() => {
-                            setAddDetailType('action_item');
-                            setAddDetailOpen(true);
-                          }}>
-
-                              Add one
-                            </Button>
                           </div>
                         </TableCell>
                       </TableRow> :
@@ -659,97 +838,171 @@ export const DealExpandedPanel = ({ deal, onClose, onOpenActionItemModal, addDet
                     className="text-xs group cursor-pointer hover:bg-muted/30"
                     onClick={() => handleActionItemClick(item)}>
 
-                        <TableCell className="py-1.5 px-1 text-[11px] text-muted-foreground text-center w-8">{index + 1}</TableCell>
+                          <TableCell className="py-1.5 px-1 text-[11px] text-muted-foreground text-center">
+                            {index + 1}
+                          </TableCell>
 
-                        {/* Task */}
-                        <TableCell className="py-1.5 px-2">
-                          <button onClick={(e) => {e.stopPropagation();handleActionItemClick(item);}} className="hover:underline text-left whitespace-normal break-words text-[#2e538e] font-normal text-xs">
-                            {item.title}
-                          </button>
-                        </TableCell>
+                          {/* Action Item */}
+                          <TableCell className="py-1.5 px-2">
+                            <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleActionItemClick(item);
+                        }}
+                        className="hover:underline text-left whitespace-normal break-words text-[#2e538e] font-normal text-sm">
 
-                        {/* Assigned To */}
-                        <TableCell onClick={(e) => e.stopPropagation()} className="py-1.5 px-2 text-xs">
-                          <Select value={item.assigned_to || 'unassigned'} onValueChange={(value) => handleAssignedToChange(item.id, value === 'unassigned' ? null : value)}>
-                            <SelectTrigger className="h-6 w-auto min-w-0 text-[11px] border-0 bg-transparent hover:bg-muted/50 px-0 [&>svg]:hidden">
-                              <SelectValue>
-                                <span className="truncate">{item.assigned_to ? getUserDisplayName(item.assigned_to) : 'Unassigned'}</span>
-                              </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="unassigned">Unassigned</SelectItem>
-                              {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.display_name}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
+                              {item.title}
+                            </button>
+                          </TableCell>
 
-                        {/* Due Date */}
-                        <TableCell onClick={(e) => e.stopPropagation()} className="py-1.5 px-2 text-xs whitespace-nowrap">
-                          {editingDateId === item.id ?
-                      <Input type="date" defaultValue={item.due_date || ''} onBlur={(e) => handleDueDateBlur(item.id, e.target.value)} onKeyDown={(e) => {if (e.key === 'Enter') handleDueDateBlur(item.id, (e.target as HTMLInputElement).value);else if (e.key === 'Escape') setEditingDateId(null);}} autoFocus className="h-6 w-[110px] text-[11px]" /> :
+                          {/* Assigned To */}
+                          <TableCell onClick={(e) => e.stopPropagation()} className="py-1.5 px-2 text-xs">
+                            <Select
+                        value={item.assigned_to || "unassigned"}
+                        onValueChange={(value) =>
+                        handleAssignedToChange(item.id, value === "unassigned" ? null : value)
+                        }>
+
+                              <SelectTrigger className="h-6 w-auto min-w-0 text-[11px] border-0 bg-transparent hover:bg-muted/50 px-0 [&>svg]:hidden">
+                                <SelectValue>
+                                  <span className="truncate">
+                                    {item.assigned_to ? getUserDisplayName(item.assigned_to) : "Unassigned"}
+                                  </span>
+                                </SelectValue>
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="unassigned">Unassigned</SelectItem>
+                                {users.map((u) =>
+                          <SelectItem key={u.id} value={u.id}>
+                                    {u.display_name}
+                                  </SelectItem>
+                          )}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+
+                          {/* Due Date */}
+                          <TableCell
+                      onClick={(e) => e.stopPropagation()}
+                      className="py-1.5 px-2 text-xs whitespace-nowrap">
+
+                            {editingDateId === item.id ?
+                      <Input
+                        type="date"
+                        defaultValue={item.due_date || ""}
+                        onBlur={(e) => handleDueDateBlur(item.id, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter")
+                          handleDueDateBlur(item.id, (e.target as HTMLInputElement).value);else
+                          if (e.key === "Escape") setEditingDateId(null);
+                        }}
+                        autoFocus
+                        className="h-6 w-[110px] text-[11px]" /> :
+
 
                       <button onClick={() => setEditingDateId(item.id)} className="hover:underline text-[11px]">
-                              {item.due_date ? formatHistoryDateTime(new Date(item.due_date)) : '—'}
-                            </button>
+                                {item.due_date ? format(new Date(item.due_date), "dd-MM-yy") : "—"}
+                              </button>
                       }
-                        </TableCell>
+                          </TableCell>
 
-                        {/* Status - dot only */}
-                        <TableCell onClick={(e) => e.stopPropagation()} className="py-1.5 px-1 text-center">
-                          <TooltipProvider delayDuration={200}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div className="flex justify-center">
-                                  <Select value={item.status} onValueChange={(value) => handleStatusChange(item.id, value)}>
-                                    <SelectTrigger className="h-6 w-6 min-w-0 border-0 bg-transparent hover:bg-muted/50 px-0 justify-center [&>svg]:hidden">
-                                      <span className={cn('w-2 h-2 rounded-full flex-shrink-0', statusDotColor[item.status] || 'bg-muted-foreground')} />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="Open"><div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-blue-500" />Open</div></SelectItem>
-                                      <SelectItem value="In Progress"><div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-yellow-500" />In Progress</div></SelectItem>
-                                      <SelectItem value="Completed"><div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-green-500" />Completed</div></SelectItem>
-                                      <SelectItem value="Cancelled"><div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-muted-foreground" />Cancelled</div></SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent side="top">{item.status}</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </TableCell>
+                          {/* Status - dot only */}
+                          <TableCell onClick={(e) => e.stopPropagation()} className="py-1.5 px-1 text-center">
+                            <TooltipProvider delayDuration={200}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex justify-center">
+                                    <Select
+                                value={item.status}
+                                onValueChange={(value) => handleStatusChange(item.id, value)}>
 
-                        {/* Actions */}
-                        <TableCell onClick={(e) => e.stopPropagation()} className="py-1.5 px-1">
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex justify-center">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-6 w-6 p-0">
-                                  <MoreHorizontal className="h-3.5 w-3.5" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleActionItemClick(item)}>
-                                  Edit
-                                </DropdownMenuItem>
-                                {item.status !== 'Completed' &&
-                            <DropdownMenuItem onClick={() => handleStatusChange(item.id, 'Completed')}>
-                                    Mark Complete
-                                  </DropdownMenuItem>
+                                      <SelectTrigger className="h-6 w-6 min-w-0 border-0 bg-transparent hover:bg-muted/50 px-0 justify-center [&>svg]:hidden">
+                                        <span
+                                    className={cn(
+                                      "w-2 h-2 rounded-full flex-shrink-0",
+                                      statusDotColor[item.status] || "bg-muted-foreground"
+                                    )} />
+
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="Open">
+                                          <div className="flex items-center gap-2">
+                                            <span className="w-2 h-2 rounded-full bg-blue-500" />
+                                            Open
+                                          </div>
+                                        </SelectItem>
+                                        <SelectItem value="In Progress">
+                                          <div className="flex items-center gap-2">
+                                            <span className="w-2 h-2 rounded-full bg-yellow-500" />
+                                            In Progress
+                                          </div>
+                                        </SelectItem>
+                                        <SelectItem value="Completed">
+                                          <div className="flex items-center gap-2">
+                                            <span className="w-2 h-2 rounded-full bg-green-500" />
+                                            Completed
+                                          </div>
+                                        </SelectItem>
+                                        <SelectItem value="Cancelled">
+                                          <div className="flex items-center gap-2">
+                                            <span className="w-2 h-2 rounded-full bg-muted-foreground" />
+                                            Cancelled
+                                          </div>
+                                        </SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">{item.status}</TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </TableCell>
+
+                          {/* Actions */}
+                          <TableCell onClick={(e) => e.stopPropagation()} className="py-1.5 px-1">
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex justify-center">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-6 w-6 p-0">
+                                    <MoreHorizontal className="h-3.5 w-3.5" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => handleActionItemClick(item)}>Edit</DropdownMenuItem>
+                                  {item.status !== "Completed" &&
+                            <DropdownMenuItem onClick={() => handleStatusChange(item.id, "Completed")}>
+                                      Mark Complete
+                                    </DropdownMenuItem>
                             }
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => handleDeleteActionItem(item.id)} className="text-destructive focus:text-destructive">
-                                  Delete
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </TableCell>
-                      </TableRow>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                              onClick={() => handleDeleteActionItem(item.id)}
+                              className="text-destructive focus:text-destructive">
+
+                                    Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </TableCell>
+                        </TableRow>
                   )
                   }
                   </TableBody>
                 </Table>
               }
+            </div>
+            <div className="flex justify-end px-2 py-1">
+              <button
+                onClick={() => {
+                  setAddDetailType("action_item");
+                  setAddDetailFromSection("action_item");
+                  setAddDetailOpen(true);
+                }}
+                className="h-7 w-7 rounded-full bg-primary text-primary-foreground shadow-md flex items-center justify-center hover:bg-primary/90 transition-colors">
+
+                <Plus className="h-4 w-4" />
+              </button>
             </div>
           </div>
         </div>
@@ -761,123 +1014,108 @@ export const DealExpandedPanel = ({ deal, onClose, onOpenActionItemModal, addDet
           <DialogHeader>
             <DialogTitle className="text-sm">History Details</DialogTitle>
           </DialogHeader>
-          {selectedLog && (() => {
+          {selectedLog &&
+          (() => {
             const details = selectedLog.details as Record<string, any> | null;
             const isManualEntry = details?.manual_entry === true;
             const changes = parseFieldChanges(selectedLog.details);
-            const updaterName = selectedLog.user_id ? displayNames[selectedLog.user_id] || 'Unknown' : '-';
+            const updaterName = selectedLog.user_id ? displayNames[selectedLog.user_id] || "Unknown" : "-";
 
             return (
               <ScrollArea className="flex-1 max-h-[calc(85vh-80px)]">
-                <div className="space-y-4 text-sm pr-2">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <span className="text-muted-foreground text-xs">Updated By</span>
-                      <p className="font-medium">{updaterName}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground text-xs">Time</span>
-                      <p>{format(new Date(selectedLog.created_at), 'PPpp')}</p>
-                    </div>
-                  </div>
-                  
-                  {isManualEntry && details?.message &&
-                  <div>
-                      <span className="text-muted-foreground text-xs block mb-1">Message</span>
-                      <p className="text-sm bg-muted/30 rounded-md p-2 whitespace-pre-wrap break-words">{String(details.message)}</p>
-                    </div>
-                  }
-
-                  {details?.action_item_title &&
-                  <div>
-                      <span className="text-muted-foreground text-xs block mb-1">Action Item</span>
-                      <p className="text-sm font-medium">{String(details.action_item_title)}</p>
-                    </div>
-                  }
-                  
-                  {changes.length > 0 &&
-                  <div>
-                      <span className="text-muted-foreground text-xs block mb-2">Field Changes</span>
-                      <div className="border rounded-lg overflow-hidden">
-                        <Table className="table-fixed w-full">
-                          <TableHeader>
-                            <TableRow className="bg-muted/50">
-                              <TableHead className="h-8 px-3 text-xs font-medium w-[25%]">Field</TableHead>
-                              <TableHead className="h-8 px-3 text-xs font-medium w-[30%]">Old Value</TableHead>
-                              <TableHead className="h-8 px-1 text-xs font-medium w-[20px]"></TableHead>
-                              <TableHead className="h-8 px-3 text-xs font-medium">New Value</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {changes.map((change, idx) =>
-                          <TableRow key={idx}>
-                                <TableCell className="py-2 px-3 text-xs font-medium capitalize break-words">
-                                  {change.field}
-                                </TableCell>
-                                <TableCell className="py-2 px-3 text-xs text-muted-foreground whitespace-normal break-all overflow-hidden">
-                                  {change.oldValue}
-                                </TableCell>
-                                <TableCell className="py-2 px-1 w-[20px]">
-                                  <ArrowRight className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                                </TableCell>
-                                <TableCell className="py-2 px-3 text-xs font-medium whitespace-normal break-all overflow-hidden">
-                                  {change.newValue}
-                                </TableCell>
-                              </TableRow>
-                          )}
-                          </TableBody>
-                        </Table>
+                  <div className="space-y-4 text-sm pr-2">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <span className="text-muted-foreground text-xs">Updated By</span>
+                        <p className="font-medium">{updaterName}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground text-xs">Date</span>
+                        <p>{format(new Date(selectedLog.created_at), "HH:mm dd-MM-yy")}</p>
                       </div>
                     </div>
+
+                    {details?.message && !details?.action_item_title &&
+                  <div>
+                        <span className="text-muted-foreground text-xs block mb-1">Update Message</span>
+                        <p className="text-sm bg-muted/30 rounded-md p-2 whitespace-pre-wrap break-words">
+                          {String(details.message)}
+                        </p>
+                      </div>
                   }
 
-                  {!isManualEntry && details && (details.record_data || details.old_data || details.updated_fields || selectedLog.action === 'create') &&
-                  <div>{renderFormattedDetails(details)}</div>
+                    {details?.action_item_title &&
+                  <>
+                        <div>
+                          <span className="text-muted-foreground text-xs block mb-1">Action Item Name</span>
+                          <p className="text-sm font-medium">{String(details.action_item_title)}</p>
+                        </div>
+                        {(details?.action_item_status || details?.field_changes?.status?.new) &&
+                    <div>
+                            <span className="text-muted-foreground text-xs block mb-1">Current Status</span>
+                            <p className="text-sm font-medium">
+                              {String(details?.field_changes?.status?.new || details?.action_item_status)}
+                            </p>
+                          </div>
+                    }
+                      </>
                   }
-                  {!isManualEntry && selectedLog.action === 'create' && !details &&
+
+                    {!details?.message && !details?.action_item_title && selectedLog.action === "create" &&
                   <p className="text-muted-foreground text-xs italic">Deal was created</p>
                   }
-                  {changes.length === 0 && !isManualEntry && selectedLog.action !== 'create' && details && !details.action_item_title && !details.record_data && !details.old_data && !details.updated_fields &&
-                  <div>{renderFormattedDetails(details)}</div>
-                  }
-                </div>
-              </ScrollArea>);
+                  </div>
+                </ScrollArea>);
 
           })()}
         </DialogContent>
       </Dialog>
-      
+
       {/* Unified Add Detail Modal */}
       <Dialog open={addDetailOpen} onOpenChange={setAddDetailOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="text-sm flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              Add Detail
+              {addDetailType === "action_item" ? "Add Action Item" : "Add Update"}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label className="text-xs">Type</Label>
-              <Select value={addDetailType} onValueChange={(v) => setAddDetailType(v as 'log' | 'action_item')}>
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="log">Log</SelectItem>
-                  <SelectItem value="action_item">Action Item</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {addDetailFromSection === null &&
+            <div className="flex gap-1 p-1 bg-muted rounded-md">
+                <button
+                type="button"
+                onClick={() => setAddDetailType("log")}
+                className={cn(
+                  "flex-1 text-xs py-1.5 px-3 rounded-sm font-medium transition-colors",
+                  addDetailType === "log" ?
+                  "bg-background text-foreground shadow-sm" :
+                  "text-muted-foreground hover:text-foreground"
+                )}>
 
-            {addDetailType === 'log' ?
+                  Update
+                </button>
+                <button
+                type="button"
+                onClick={() => setAddDetailType("action_item")}
+                className={cn(
+                  "flex-1 text-xs py-1.5 px-3 rounded-sm font-medium transition-colors",
+                  addDetailType === "action_item" ?
+                  "bg-background text-foreground shadow-sm" :
+                  "text-muted-foreground hover:text-foreground"
+                )}>
+
+                  Action Item
+                </button>
+              </div>
+            }
+
+            {addDetailType === "log" ?
             <>
                 <div className="space-y-2">
-                  <Label className="text-xs">Description</Label>
                   <Textarea
                   value={logMessage}
                   onChange={(e) => setLogMessage(e.target.value)}
-                  placeholder="Enter log details..."
+                  placeholder="Enter update..."
                   className="min-h-[100px] text-sm" />
 
                 </div>
@@ -885,7 +1123,6 @@ export const DealExpandedPanel = ({ deal, onClose, onOpenActionItemModal, addDet
 
             <>
                 <div className="space-y-2">
-                  <Label className="text-xs">Title *</Label>
                   <Input
                   value={actionTitle}
                   onChange={(e) => setActionTitle(e.target.value)}
@@ -894,64 +1131,60 @@ export const DealExpandedPanel = ({ deal, onClose, onOpenActionItemModal, addDet
 
                 </div>
 
-                <Collapsible open={moreOptionsOpen} onOpenChange={setMoreOptionsOpen}>
-                  <CollapsibleTrigger asChild>
-                    <Button variant="ghost" size="sm" className="text-xs h-7 px-2 text-muted-foreground">
-                      {moreOptionsOpen ? <ChevronDown className="h-3 w-3 mr-1" /> : <ChevronRight className="h-3 w-3 mr-1" />}
-                      More options
-                    </Button>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="space-y-3 pt-2">
-                    <div className="space-y-2">
-                      <Label className="text-xs">Assigned To</Label>
-                      <Select value={actionAssignedTo} onValueChange={setActionAssignedTo}>
-                        <SelectTrigger className="h-9 text-sm">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="unassigned">Unassigned</SelectItem>
-                          {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.display_name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs">Due Date</Label>
-                      <Input
-                      type="date"
-                      value={actionDueDate}
-                      onChange={(e) => setActionDueDate(e.target.value)}
-                      className="h-9 text-sm" />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label className="text-xs">Assigned To</Label>
+                    <Select value={actionAssignedTo} onValueChange={setActionAssignedTo}>
+                      <SelectTrigger className="h-9 text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unassigned">Unassigned</SelectItem>
+                        {users.map((u) =>
+                      <SelectItem key={u.id} value={u.id}>
+                            {u.display_name}
+                          </SelectItem>
+                      )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs">Due Date</Label>
+                    <Input
+                    type="date"
+                    value={actionDueDate}
+                    onChange={(e) => setActionDueDate(e.target.value)}
+                    className="h-9 text-sm" />
 
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-2">
-                        <Label className="text-xs">Priority</Label>
-                        <Select value={actionPriority} onValueChange={setActionPriority}>
-                          <SelectTrigger className="h-9 text-sm">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="High">High</SelectItem>
-                            <SelectItem value="Medium">Medium</SelectItem>
-                            <SelectItem value="Low">Low</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs">Status</Label>
-                        <Select value={actionStatus} onValueChange={setActionStatus}>
-                          <SelectTrigger className="h-9 text-sm">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Open">Open</SelectItem>
-                            <SelectItem value="In Progress">In Progress</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label className="text-xs">Priority</Label>
+                    <Select value={actionPriority} onValueChange={setActionPriority}>
+                      <SelectTrigger className="h-9 text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="High">High</SelectItem>
+                        <SelectItem value="Medium">Medium</SelectItem>
+                        <SelectItem value="Low">Low</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs">Status</Label>
+                    <Select value={actionStatus} onValueChange={setActionStatus}>
+                      <SelectTrigger className="h-9 text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Open">Open</SelectItem>
+                        <SelectItem value="In Progress">In Progress</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
               </>
             }
 
@@ -962,9 +1195,11 @@ export const DealExpandedPanel = ({ deal, onClose, onOpenActionItemModal, addDet
               <Button
                 size="sm"
                 onClick={handleSaveDetail}
-                disabled={addDetailType === 'log' ? !logMessage.trim() || isSavingLog : !actionTitle.trim() || isSavingLog}>
+                disabled={
+                addDetailType === "log" ? !logMessage.trim() || isSavingLog : !actionTitle.trim() || isSavingLog
+                }>
 
-                {isSavingLog ? 'Saving...' : 'Save'}
+                {isSavingLog ? "Saving..." : "Save"}
               </Button>
             </div>
           </div>
