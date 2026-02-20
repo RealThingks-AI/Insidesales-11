@@ -211,36 +211,35 @@ const StakeholdersSection = ({ deal, queryClient }: { deal: Deal; queryClient: R
   const stakeholders = [
     { label: "Budget Owner", field: "budget_owner_contact_id", value: budgetOwner, setValue: setBudgetOwner },
     { label: "Champion", field: "champion_contact_id", value: champion, setValue: setChampion },
-    { label: "Objector", field: "objector_contact_id", value: objector, setValue: setObjector },
     { label: "Influencer", field: "influencer_contact_id", value: influencer, setValue: setInfluencer },
+    { label: "Objector", field: "objector_contact_id", value: objector, setValue: setObjector },
   ];
 
   return (
-    <div className="px-2 pt-2 pb-1">
-      <div className="flex items-center gap-1.5 mb-2">
+    <div className="px-2 pt-1.5 pb-1">
+      <div className="flex items-center gap-1.5 mb-1.5">
         <Users className="h-3.5 w-3.5 text-muted-foreground" />
         <span className="text-[11px] font-bold text-muted-foreground">Deal Related</span>
       </div>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="space-y-1">
         {stakeholders.map(({ label, field, value, setValue }) => (
-          <div key={field} className="space-y-0.5">
-            <Label className="text-[10px] text-muted-foreground">{label}</Label>
-            <ContactSearchableDropdown
-              value={value ? (contactNames[value] || "") : ""}
-              selectedContactId={value || undefined}
-              onValueChange={(val) => {
-                if (!val) {
-                  setValue("");
-                  handleStakeholderChange(field, null, "");
-                }
-              }}
-              onContactSelect={(contact: Contact) => {
-                setValue(contact.id);
-                handleStakeholderChange(field, contact.id, contact.contact_name);
-              }}
-              placeholder={`Select ${label.toLowerCase()}...`}
-              className="h-7 text-xs"
-            />
+          <div key={field} className="flex items-center gap-2 min-h-[24px]">
+            <span className="text-[10px] text-muted-foreground w-[90px] shrink-0">{label}</span>
+            {value ? (
+              <span className="inline-flex items-center gap-1 bg-muted rounded px-1.5 py-0.5 text-[10px] font-medium max-w-[160px]">
+                <span className="truncate">{contactNames[value] || "..."}</span>
+                <X className="h-2.5 w-2.5 cursor-pointer opacity-60 hover:opacity-100 shrink-0" onClick={() => { setValue(""); handleStakeholderChange(field, null, ""); }} />
+              </span>
+            ) : (
+              <ContactSearchableDropdown
+                value=""
+                selectedContactId={undefined}
+                onValueChange={() => {}}
+                onContactSelect={(contact: Contact) => { setValue(contact.id); handleStakeholderChange(field, contact.id, contact.contact_name); }}
+                placeholder={`+ Add ${label}`}
+                className="h-6 text-[10px] border-dashed px-2 text-muted-foreground w-auto min-w-[100px]"
+              />
+            )}
           </div>
         ))}
       </div>
