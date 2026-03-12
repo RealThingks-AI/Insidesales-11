@@ -254,8 +254,12 @@ export function useActionItems(initialFilters?: Partial<ActionItemFilters>) {
         }
       }
     },
-    onSuccess: () => {
+    onSuccess: (data, variables, context) => {
       toast.success('Action item updated successfully');
+      if (data) {
+        const { id, ...updates } = variables;
+        logUpdate('action_items', id, updates, context?.oldItem || {});
+      }
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['action_items'] });
