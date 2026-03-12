@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import { useCRUDAudit } from '@/hooks/useCRUDAudit';
 
 export type ActionItemPriority = 'Low' | 'Medium' | 'High';
 export type ActionItemStatus = 'Open' | 'In Progress' | 'Completed' | 'Cancelled';
@@ -65,6 +66,7 @@ export function useActionItems(initialFilters?: Partial<ActionItemFilters>) {
     ...defaultFilters,
     ...initialFilters,
   });
+  const { logCreate, logUpdate, logDelete, logBulkUpdate, logBulkDelete } = useCRUDAudit();
 
   // Fetch action items
   const {
@@ -181,8 +183,19 @@ export function useActionItems(initialFilters?: Partial<ActionItemFilters>) {
         }
       }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast.success('Action item created successfully');
+      if (data) {
+        logCreate('action_items', data.id, {
+          title: data.title,
+          module_type: data.module_type,
+          module_id: data.module_id,
+          assigned_to: data.assigned_to,
+          priority: data.priority,
+          status: data.status,
+          due_date: data.due_date,
+        });
+      }
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['action_items'] });
@@ -203,18 +216,21 @@ export function useActionItems(initialFilters?: Partial<ActionItemFilters>) {
       return data;
     },
     onMutate: async (updatedItem) => {
-      // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['action_items'] });
 
-      // Snapshot all action_items caches
       const queryKeys = getActionItemsQueryKeys();
       const previousSnapshots: { queryKey: readonly unknown[]; data: unknown }[] = [];
+      // Capture old data for audit
+      let oldItem: ActionItem | undefined;
 
       for (const queryKey of queryKeys) {
         const data = queryClient.getQueryData(queryKey);
         previousSnapshots.push({ queryKey, data });
 
-        // Optimistically update the cache
+        if (!oldItem && Array.isArray(data)) {
+          oldItem = (data as ActionItem[]).find(item => item.id === updatedItem.id);
+        }
+
         queryClient.setQueryData(queryKey, (old: ActionItem[] | undefined) => {
           if (!old) return old;
           return old.map(item =>
@@ -225,7 +241,7 @@ export function useActionItems(initialFilters?: Partial<ActionItemFilters>) {
         });
       }
 
-      return { previousSnapshots };
+      return { previousSnapshots, oldItem };
     },
     onError: (error: any, _updatedItem, context) => {
       console.error('Error updating action item:', error);
@@ -238,8 +254,12 @@ export function useActionItems(initialFilters?: Partial<ActionItemFilters>) {
         }
       }
     },
-    onSuccess: () => {
+    onSuccess: (data, variables, context) => {
       toast.success('Action item updated successfully');
+      if (data) {
+        const { id, ...updates } = variables;
+        logUpdate('action_items', id, updates, context?.oldItem || {});
+      }
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['action_items'] });
@@ -261,10 +281,15 @@ export function useActionItems(initialFilters?: Partial<ActionItemFilters>) {
 
       const queryKeys = getActionItemsQueryKeys();
       const previousSnapshots: { queryKey: readonly unknown[]; data: unknown }[] = [];
+      let deletedItem: ActionItem | undefined;
 
       for (const queryKey of queryKeys) {
         const data = queryClient.getQueryData(queryKey);
         previousSnapshots.push({ queryKey, data });
+
+        if (!deletedItem && Array.isArray(data)) {
+          deletedItem = (data as ActionItem[]).find(item => item.id === deletedId);
+        }
 
         queryClient.setQueryData(queryKey, (old: ActionItem[] | undefined) => {
           if (!old) return old;
@@ -272,7 +297,7 @@ export function useActionItems(initialFilters?: Partial<ActionItemFilters>) {
         });
       }
 
-      return { previousSnapshots };
+      return { previousSnapshots, deletedItem };
     },
     onError: (error, _deletedId, context) => {
       console.error('Error deleting action item:', error);
@@ -283,8 +308,9 @@ export function useActionItems(initialFilters?: Partial<ActionItemFilters>) {
         }
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, deletedId, context) => {
       toast.success('Action item deleted successfully');
+      logDelete('action_items', deletedId, context?.deletedItem || {});
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['action_items'] });
@@ -333,8 +359,9 @@ export function useActionItems(initialFilters?: Partial<ActionItemFilters>) {
         }
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       toast.success('Action items updated successfully');
+      logBulkUpdate('action_items', variables.ids.length, { status: variables.status, record_ids: variables.ids.slice(0, 10) });
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['action_items'] });
@@ -379,8 +406,9 @@ export function useActionItems(initialFilters?: Partial<ActionItemFilters>) {
         }
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, deletedIds) => {
       toast.success('Action items deleted successfully');
+      logBulkDelete('action_items', deletedIds.length, deletedIds);
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['action_items'] });
