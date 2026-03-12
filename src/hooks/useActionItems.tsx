@@ -281,10 +281,15 @@ export function useActionItems(initialFilters?: Partial<ActionItemFilters>) {
 
       const queryKeys = getActionItemsQueryKeys();
       const previousSnapshots: { queryKey: readonly unknown[]; data: unknown }[] = [];
+      let deletedItem: ActionItem | undefined;
 
       for (const queryKey of queryKeys) {
         const data = queryClient.getQueryData(queryKey);
         previousSnapshots.push({ queryKey, data });
+
+        if (!deletedItem && Array.isArray(data)) {
+          deletedItem = (data as ActionItem[]).find(item => item.id === deletedId);
+        }
 
         queryClient.setQueryData(queryKey, (old: ActionItem[] | undefined) => {
           if (!old) return old;
@@ -292,7 +297,7 @@ export function useActionItems(initialFilters?: Partial<ActionItemFilters>) {
         });
       }
 
-      return { previousSnapshots };
+      return { previousSnapshots, deletedItem };
     },
     onError: (error, _deletedId, context) => {
       console.error('Error deleting action item:', error);
