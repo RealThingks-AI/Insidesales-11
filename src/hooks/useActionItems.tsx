@@ -216,18 +216,21 @@ export function useActionItems(initialFilters?: Partial<ActionItemFilters>) {
       return data;
     },
     onMutate: async (updatedItem) => {
-      // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['action_items'] });
 
-      // Snapshot all action_items caches
       const queryKeys = getActionItemsQueryKeys();
       const previousSnapshots: { queryKey: readonly unknown[]; data: unknown }[] = [];
+      // Capture old data for audit
+      let oldItem: ActionItem | undefined;
 
       for (const queryKey of queryKeys) {
         const data = queryClient.getQueryData(queryKey);
         previousSnapshots.push({ queryKey, data });
 
-        // Optimistically update the cache
+        if (!oldItem && Array.isArray(data)) {
+          oldItem = (data as ActionItem[]).find(item => item.id === updatedItem.id);
+        }
+
         queryClient.setQueryData(queryKey, (old: ActionItem[] | undefined) => {
           if (!old) return old;
           return old.map(item =>
@@ -238,7 +241,7 @@ export function useActionItems(initialFilters?: Partial<ActionItemFilters>) {
         });
       }
 
-      return { previousSnapshots };
+      return { previousSnapshots, oldItem };
     },
     onError: (error: any, _updatedItem, context) => {
       console.error('Error updating action item:', error);
