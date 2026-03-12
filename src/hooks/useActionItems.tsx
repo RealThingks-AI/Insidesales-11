@@ -183,8 +183,19 @@ export function useActionItems(initialFilters?: Partial<ActionItemFilters>) {
         }
       }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast.success('Action item created successfully');
+      if (data) {
+        logCreate('action_items', data.id, {
+          title: data.title,
+          module_type: data.module_type,
+          module_id: data.module_id,
+          assigned_to: data.assigned_to,
+          priority: data.priority,
+          status: data.status,
+          due_date: data.due_date,
+        });
+      }
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['action_items'] });
