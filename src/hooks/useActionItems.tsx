@@ -359,8 +359,9 @@ export function useActionItems(initialFilters?: Partial<ActionItemFilters>) {
         }
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       toast.success('Action items updated successfully');
+      logBulkUpdate('action_items', variables.ids.length, { status: variables.status, record_ids: variables.ids.slice(0, 10) });
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['action_items'] });
