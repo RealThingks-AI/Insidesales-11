@@ -463,7 +463,7 @@ const StakeholdersSection = ({ deal, queryClient }: {deal: Deal;queryClient: Ret
       return null;
     }
     // Log inline contact creation
-    await logCreate('contacts', data.id, { contact_name: name, company_name: companyName, created_from: 'deal_stakeholder_picker', deal_name: deal.deal_name });
+    await logStakeholderCreate('contacts', data.id, { contact_name: name, company_name: companyName, created_from: 'deal_stakeholder_picker', deal_name: deal.deal_name });
     // Add to local contacts list
     setAllContacts((prev) => [...prev, data as Contact].sort((a, b) => a.contact_name.localeCompare(b.contact_name)));
     return data as Contact;
