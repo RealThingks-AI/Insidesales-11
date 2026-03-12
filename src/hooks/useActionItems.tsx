@@ -66,6 +66,7 @@ export function useActionItems(initialFilters?: Partial<ActionItemFilters>) {
     ...defaultFilters,
     ...initialFilters,
   });
+  const { logCreate, logUpdate, logDelete, logBulkUpdate, logBulkDelete } = useCRUDAudit();
 
   // Fetch action items
   const {
