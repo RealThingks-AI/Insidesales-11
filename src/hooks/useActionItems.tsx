@@ -406,8 +406,9 @@ export function useActionItems(initialFilters?: Partial<ActionItemFilters>) {
         }
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, deletedIds) => {
       toast.success('Action items deleted successfully');
+      logBulkDelete('action_items', deletedIds.length, deletedIds);
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['action_items'] });

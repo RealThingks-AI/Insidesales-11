@@ -94,6 +94,8 @@ export const useSecureContacts = () => {
 
   const updateContact = async (id: string, updates: Partial<Contact>) => {
     try {
+      const existingContact = contacts.find(c => c.id === id);
+      
       const query = supabase
         .from('contacts')
         .update({
@@ -111,6 +113,7 @@ export const useSecureContacts = () => {
         setContacts(prev => prev.map(contact => 
           contact.id === id ? result.data : contact
         ));
+        await logUpdate('contacts', id, updates, existingContact || {});
       }
       
       return result.data;

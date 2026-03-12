@@ -66,10 +66,12 @@ export const useSecureDeals = () => {
       const result = await secureQuery('deals', query, 'UPDATE');
       
       if (result.data) {
-        // Update local state
         setDeals(prev => prev.map(deal => 
           deal.id === id ? { ...deal, ...updates } : deal
         ));
+        
+        // Log the update with old/new values
+        await logUpdate('deals', id, updates, existingDeal || {});
         
         console.log('Deal updated successfully');
         toast({
