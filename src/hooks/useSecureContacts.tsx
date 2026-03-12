@@ -38,7 +38,7 @@ export const useSecureContacts = () => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const { secureQuery, secureExport } = useSecureDataAccess();
-  const { logDelete } = useCRUDAudit();
+  const { logCreate, logUpdate, logDelete } = useCRUDAudit();
   const { toast } = useToast();
 
   const fetchContacts = async () => {
