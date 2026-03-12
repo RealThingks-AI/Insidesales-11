@@ -1,94 +1,91 @@
 
-## Deal Related Section - 3 Improvements
 
-### Current State
-- 4 large dropdowns in a 2x2 grid, each taking full height with no selected state visibility
-- Order: Budget Owner | Champion | Objector | Influencer
-- When a contact is selected, the name shows inside the dropdown button but is truncated and hard to read
-- The dropdowns are tall with lots of padding, making the section bulky
+## Fix Note Editor Bullet Point & Stakeholders Layout Issues
 
-### Changes Required
+### Issues Found
 
-**1. More Compact Layout**
-- Reduce the section to a tighter inline layout
-- Use a horizontal row-based design: label on the left, value/selector on the right
-- Each row is only as tall as needed (~28px)
-- Replace full-width dropdowns with compact inline selectors
-- Render the section as 4 rows in a dense list, not a 2x2 grid of dropdowns
+1. **Bullet point moves when typing**: `autoFocus` on the Textarea (line 633) places the cursor at position 0 (before `"• "`), so typing inserts text before the bullet instead of after it.
 
-**2. Swap Objector ↔ Influencer**
-- Current order: Budget Owner, Champion, Objector, Influencer
-- New order: Budget Owner, Champion, Influencer, Objector
-- Simple array reorder in the `stakeholders` array (lines 211-216)
+2. **Notes panel lacks proper scrollbar**: The notes summary panel (line 580-679) has a `max-h-[280px]` on the inner div but the outer wrapper has no scroll constraint, so it still pushes content.
 
-**3. Selected Contact Shown as Visible Name Badge**
-The DB stores a single UUID per role — so each role can have one contact. The problem is that once selected, the name is hidden inside a truncated dropdown button. The fix:
-- When a contact IS selected: show their name as a small badge/chip with an `×` button to remove, next to the role label
-- When no contact selected: show a compact `+ Add` button that opens the contact picker popover
-- This makes selections immediately visible and easy to manage
+3. **Stakeholders section grows unbounded**: The `StakeholdersSection` component has no max-height. When the Notes panel is open with many notes, it consumes all vertical space, squishing the Updates and Action Items sections to near-zero height.
 
-### Visual Design (After)
+### Changes (single file: `src/components/DealExpandedPanel.tsx`)
 
-```text
-Deal Related
-Budget Owner  [John Smith ×]
-Champion      [+ Add]
-Influencer    [Sarah Lee ×]
-Objector      [+ Add]
-```
+#### Fix 1: Bullet cursor positioning (line 628-634)
 
-Each row:
-- Left: role label (text-[10px] muted)
-- Right: Either a name chip with ×, or a small "+ Add" button that triggers the contact picker popover
-
-### Technical Changes
-
-**File: `src/components/DealExpandedPanel.tsx`**
-
-**StakeholdersSection component (lines 178-248):**
-
-1. Reorder the `stakeholders` array: Budget Owner → Champion → Influencer → Objector
-
-2. Replace the 2x2 grid layout with a compact vertical list:
+Replace `autoFocus` on the Textarea with a `ref` callback that focuses the element AND places the cursor at the end of the text (after `"• "`):
 
 ```tsx
-<div className="px-2 pt-1.5 pb-1">
-  <div className="flex items-center gap-1.5 mb-1.5">
-    <Users className="h-3.5 w-3.5 text-muted-foreground" />
-    <span className="text-[11px] font-bold text-muted-foreground">Deal Related</span>
-  </div>
-  <div className="space-y-1">
-    {stakeholders.map(({ label, field, value, setValue }) => (
-      <div key={field} className="flex items-center gap-2 min-h-[24px]">
-        <span className="text-[10px] text-muted-foreground w-[90px] shrink-0">{label}</span>
-        {value ? (
-          <div className="flex items-center gap-1 flex-wrap">
-            <span className="inline-flex items-center gap-1 bg-muted rounded px-1.5 py-0.5 text-[10px] font-medium max-w-[160px]">
-              <span className="truncate">{contactNames[value] || "..."}</span>
-              <X className="h-2.5 w-2.5 cursor-pointer opacity-60 hover:opacity-100 shrink-0" onClick={() => { setValue(""); handleStakeholderChange(field, null, ""); }} />
-            </span>
-          </div>
-        ) : (
-          <ContactSearchableDropdown
-            value=""
-            selectedContactId={undefined}
-            onValueChange={() => {}}
-            onContactSelect={(contact) => { setValue(contact.id); handleStakeholderChange(field, contact.id, contact.contact_name); }}
-            placeholder={`+ Add ${label}`}
-            className="h-6 text-[10px] border-dashed px-2 text-muted-foreground w-auto min-w-[100px]"
-          />
-        )}
-      </div>
-    ))}
-  </div>
+<Textarea
+  value={noteText}
+  onChange={(e) => setNoteText(e.target.value)}
+  onKeyDown={handleNoteKeyDown}
+  className="min-h-[100px] text-xs resize-none"
+  ref={(el) => {
+    if (el) {
+      el.focus();
+      const len = el.value.length;
+      el.selectionStart = len;
+      el.selectionEnd = len;
+    }
+  }}
+/>
+```
+
+#### Fix 2: Constrain Stakeholders section height
+
+Wrap the StakeholdersSection output in a container with `max-h` and `overflow-y-auto` so it scrolls when content is large. Change the outer div (line 462) from:
+
+```tsx
+<div className="px-3 pt-1.5 pb-1">
+```
+
+to:
+
+```tsx
+<div className="px-3 pt-1.5 pb-1 max-h-[45%] overflow-y-auto shrink-0">
+```
+
+However, since this is not inside a flex parent that uses percentage heights well, a better approach is to change the parent layout. The parent (line 1182) is:
+
+```tsx
+<div className="flex-1 min-h-0 flex flex-col overflow-hidden gap-1">
+```
+
+The fix: Make the StakeholdersSection a flex item that can shrink, and give it a max-height so it doesn't dominate. Change line 1184 from:
+
+```tsx
+<StakeholdersSection deal={deal} queryClient={queryClient} />
+```
+
+to wrap it in a constrained container:
+
+```tsx
+<div className="shrink-0 max-h-[40%] overflow-y-auto">
+  <StakeholdersSection deal={deal} queryClient={queryClient} />
 </div>
 ```
 
-This design:
-- Compact rows replace the 2x2 grid
-- Selected contacts show as removable chips (name is fully visible, not truncated in a full-width button)
-- Empty slots show a small "+ Add Role" dashed button that opens the picker
-- The picker only appears when needed, keeping the UI clean
+This ensures:
+- Stakeholders section gets at most 40% of the panel height
+- When content exceeds that, a scrollbar appears
+- Updates and Action Items always get their fair share of space
 
-### Files to Modify
-- `src/components/DealExpandedPanel.tsx` — Update `StakeholdersSection` component (lines 178-248)
+#### Fix 3: Ensure notes panel scrolls properly
+
+The notes summary panel (line 596) already has `max-h-[280px] overflow-y-auto`, but when inside the constrained container from Fix 2, this works correctly. No additional change needed here -- the outer scroll from Fix 2 handles it.
+
+### Summary
+
+| Change | Line(s) | Description |
+|--------|---------|-------------|
+| Replace `autoFocus` with ref callback | 628-634 | Cursor placed after bullet on open |
+| Wrap StakeholdersSection in scrollable container | 1184 | Max 40% height with scrollbar |
+
+### Technical Notes
+
+- The ref callback fires on every render, but since `el.focus()` is idempotent when already focused, this is harmless
+- The `max-h-[40%]` works because the parent has `flex-1 min-h-0` which resolves to an actual pixel height
+- Updates and Action Items sections keep their `flex-1 min-h-0` with `h-[220px]`, ensuring they share remaining space equally
+
