@@ -73,6 +73,7 @@ export const useSecureContacts = () => {
       
       if (result.data) {
         setContacts(prev => [result.data, ...prev]);
+        await logCreate('contacts', result.data.id, { contact_name: result.data.contact_name, ...contactData });
         toast({
           title: "Success",
           description: "Contact created successfully",
