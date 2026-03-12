@@ -308,8 +308,9 @@ export function useActionItems(initialFilters?: Partial<ActionItemFilters>) {
         }
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, deletedId, context) => {
       toast.success('Action item deleted successfully');
+      logDelete('action_items', deletedId, context?.deletedItem || {});
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['action_items'] });
