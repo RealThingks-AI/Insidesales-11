@@ -28,7 +28,7 @@ export const useSecureDeals = () => {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
   const { secureQuery, secureExport } = useSecureDataAccess();
-  const { logDelete } = useCRUDAudit();
+  const { logUpdate, logDelete } = useCRUDAudit();
   const { toast } = useToast();
 
   const fetchDeals = async () => {
