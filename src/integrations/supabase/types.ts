@@ -268,14 +268,20 @@ export type Database = {
           contact_id: string | null
           created_at: string | null
           created_by: string | null
+          delivery_status: string | null
           email_status: string | null
           email_type: string | null
           id: string
           linkedin_status: string | null
+          message_id: string | null
           notes: string | null
           outcome: string | null
           owner: string | null
+          parent_id: string | null
+          sent_via: string | null
           subject: string | null
+          template_id: string | null
+          thread_id: string | null
         }
         Insert: {
           account_id?: string | null
@@ -287,14 +293,20 @@ export type Database = {
           contact_id?: string | null
           created_at?: string | null
           created_by?: string | null
+          delivery_status?: string | null
           email_status?: string | null
           email_type?: string | null
           id?: string
           linkedin_status?: string | null
+          message_id?: string | null
           notes?: string | null
           outcome?: string | null
           owner?: string | null
+          parent_id?: string | null
+          sent_via?: string | null
           subject?: string | null
+          template_id?: string | null
+          thread_id?: string | null
         }
         Update: {
           account_id?: string | null
@@ -306,14 +318,20 @@ export type Database = {
           contact_id?: string | null
           created_at?: string | null
           created_by?: string | null
+          delivery_status?: string | null
           email_status?: string | null
           email_type?: string | null
           id?: string
           linkedin_status?: string | null
+          message_id?: string | null
           notes?: string | null
           outcome?: string | null
           owner?: string | null
+          parent_id?: string | null
+          sent_via?: string | null
           subject?: string | null
+          template_id?: string | null
+          thread_id?: string | null
         }
         Relationships: [
           {
@@ -335,6 +353,20 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_communications_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_communications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_communications_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_email_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -587,6 +619,50 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: []
+      }
+      campaign_timing_windows: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          created_by: string | null
+          end_date: string
+          id: string
+          notes: string | null
+          priority: string
+          start_date: string
+          window_name: string
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          created_by?: string | null
+          end_date: string
+          id?: string
+          notes?: string | null
+          priority?: string
+          start_date: string
+          window_name: string
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          created_by?: string | null
+          end_date?: string
+          id?: string
+          notes?: string | null
+          priority?: string
+          start_date?: string
+          window_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_timing_windows_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       campaigns: {
         Row: {

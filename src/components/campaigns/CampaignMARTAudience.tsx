@@ -2,10 +2,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useCampaigns, type Campaign } from "@/hooks/useCampaigns";
 import { useState, useEffect, KeyboardEvent } from "react";
-import { Users, X, Trash2 } from "lucide-react";
+import { Users, Briefcase, Building2, X, Trash2, Save, Target } from "lucide-react";
 
 interface AudienceData {
   job_titles: string[];
@@ -51,28 +52,30 @@ function TagInput({ tags, onChange, placeholder }: { tags: string[]; onChange: (
   const removeTag = (tag: string) => onChange(tags.filter(t => t !== tag));
 
   return (
-    <div className="space-y-1.5">
-      <div className="flex flex-wrap gap-1 min-h-[24px]">
-        {tags.map(tag => (
-          <Badge key={tag} variant="secondary" className="flex items-center gap-1 text-xs py-0">
-            {tag}
-            <button onClick={() => removeTag(tag)} className="ml-0.5 hover:text-destructive"><X className="h-3 w-3" /></button>
-          </Badge>
-        ))}
-      </div>
+    <div className="space-y-1">
       <Input value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown} placeholder={placeholder} className="h-8 text-sm" />
+      {tags.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {tags.map(tag => (
+            <Badge key={tag} variant="secondary" className="flex items-center gap-1 text-xs py-0 px-1.5">
+              {tag}
+              <button onClick={() => removeTag(tag)} className="ml-0.5 hover:text-destructive"><X className="h-3 w-3" /></button>
+            </Badge>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-function MultiCheckbox({ options, selected, onChange }: { options: string[]; selected: string[]; onChange: (selected: string[]) => void }) {
+function CheckboxGroup({ options, selected, onChange }: { options: string[]; selected: string[]; onChange: (selected: string[]) => void }) {
   const toggle = (opt: string) => onChange(selected.includes(opt) ? selected.filter(s => s !== opt) : [...selected, opt]);
   return (
-    <div className="flex flex-wrap gap-x-3 gap-y-1.5">
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-1">
       {options.map(opt => (
-        <label key={opt} className="flex items-center gap-1.5 text-sm cursor-pointer">
-          <Checkbox checked={selected.includes(opt)} onCheckedChange={() => toggle(opt)} />
-          {opt}
+        <label key={opt} className="flex items-center gap-1.5 text-sm cursor-pointer hover:text-foreground transition-colors">
+          <Checkbox checked={selected.includes(opt)} onCheckedChange={() => toggle(opt)} className="h-3.5 w-3.5" />
+          <span className="text-xs">{opt}</span>
         </label>
       ))}
     </div>
@@ -104,57 +107,105 @@ export function CampaignMARTAudience({ campaign }: Props) {
     setData({ job_titles: [], departments: [], seniorities: [], industries: [], company_sizes: [] });
   };
 
-  const hasContent = data.job_titles.length > 0 || data.departments.length > 0 || data.seniorities.length > 0 || data.industries.length > 0 || data.company_sizes.length > 0;
+  const criteriaCount = [
+    data.job_titles.length > 0,
+    data.departments.length > 0,
+    data.seniorities.length > 0,
+    data.industries.length > 0,
+    data.company_sizes.length > 0,
+  ].filter(Boolean).length;
 
+  const hasContent = criteriaCount > 0;
+
+  // Build summary
   const summaryParts: string[] = [];
   if (data.seniorities.length) summaryParts.push(data.seniorities.join(", "));
-  if (data.industries.length) summaryParts.push(`in ${data.industries.join(", ")}`);
-  if (data.company_sizes.length) summaryParts.push(`companies with ${data.company_sizes.join(" or ")} employees`);
+  if (data.job_titles.length) summaryParts.push(data.job_titles.join(", "));
+  if (data.departments.length) summaryParts.push(`in ${data.departments.join(", ")}`);
+  if (data.industries.length) summaryParts.push(`from ${data.industries.join(", ")}`);
+  if (data.company_sizes.length) summaryParts.push(`(${data.company_sizes.join(" / ")} employees)`);
   const summary = summaryParts.length > 0 ? `Targeting ${summaryParts.join(" ")}` : "";
 
   return (
     <div className="space-y-3">
-      {/* 2-column grid layout */}
+      {/* Summary card when content exists */}
+      {hasContent && (
+        <Card className="bg-primary/5 border-primary/10">
+          <CardContent className="py-2.5 px-3">
+            <div className="flex items-start gap-2">
+              <Target className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <span className="text-xs font-medium">Audience Profile</span>
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{criteriaCount}/5 criteria</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground italic truncate">{summary}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Empty state */}
+      {!hasContent && (
+        <div className="p-3 border border-dashed rounded-lg text-center">
+          <Users className="h-5 w-5 text-muted-foreground mx-auto mb-1" />
+          <p className="text-xs text-muted-foreground">Define your ideal customer profile by filling in criteria below.</p>
+        </div>
+      )}
+
+      {/* Two sections: WHO and WHERE */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Left: Tag inputs */}
+        {/* WHO section */}
         <div className="space-y-3">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Job Titles <span className="text-[10px] text-muted-foreground">(type + Enter)</span></Label>
-            <TagInput tags={data.job_titles} onChange={tags => setData({ ...data, job_titles: tags })} placeholder="e.g. CEO, VP of Sales..." />
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <Briefcase className="h-3.5 w-3.5" />
+            Who — Role & Seniority
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Industries <span className="text-[10px] text-muted-foreground">(type + Enter)</span></Label>
-            <TagInput tags={data.industries} onChange={tags => setData({ ...data, industries: tags })} placeholder="e.g. SaaS, FinTech..." />
+
+          <div className="space-y-2">
+            <div>
+              <Label className="text-xs mb-1 block">Job Titles <span className="text-[10px] text-muted-foreground">(type + Enter)</span></Label>
+              <TagInput tags={data.job_titles} onChange={tags => setData({ ...data, job_titles: tags })} placeholder="e.g. CEO, VP of Sales..." />
+            </div>
+
+            <div>
+              <Label className="text-xs mb-1 block">Seniority</Label>
+              <CheckboxGroup options={SENIORITIES} selected={data.seniorities} onChange={sens => setData({ ...data, seniorities: sens })} />
+            </div>
+
+            <div>
+              <Label className="text-xs mb-1 block">Departments</Label>
+              <CheckboxGroup options={DEPARTMENTS} selected={data.departments} onChange={deps => setData({ ...data, departments: deps })} />
+            </div>
           </div>
         </div>
 
-        {/* Right: Checkbox groups */}
+        {/* WHERE section */}
         <div className="space-y-3">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Departments</Label>
-            <MultiCheckbox options={DEPARTMENTS} selected={data.departments} onChange={deps => setData({ ...data, departments: deps })} />
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <Building2 className="h-3.5 w-3.5" />
+            Where — Industry & Size
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Seniority</Label>
-            <MultiCheckbox options={SENIORITIES} selected={data.seniorities} onChange={sens => setData({ ...data, seniorities: sens })} />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Company Sizes</Label>
-            <MultiCheckbox options={COMPANY_SIZES} selected={data.company_sizes} onChange={sizes => setData({ ...data, company_sizes: sizes })} />
+
+          <div className="space-y-2">
+            <div>
+              <Label className="text-xs mb-1 block">Industries <span className="text-[10px] text-muted-foreground">(type + Enter)</span></Label>
+              <TagInput tags={data.industries} onChange={tags => setData({ ...data, industries: tags })} placeholder="e.g. SaaS, FinTech, Manufacturing..." />
+            </div>
+
+            <div>
+              <Label className="text-xs mb-1 block">Company Sizes</Label>
+              <CheckboxGroup options={COMPANY_SIZES} selected={data.company_sizes} onChange={sizes => setData({ ...data, company_sizes: sizes })} />
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Summary banner */}
-      {summary && (
-        <div className="p-2.5 bg-primary/5 border border-primary/10 rounded-lg">
-          <p className="text-xs text-muted-foreground italic">{summary}</p>
-        </div>
-      )}
-
       {/* Action buttons */}
-      <div className="flex items-center gap-2">
-        <Button size="sm" className="h-8" onClick={handleSave} disabled={saving || !hasContent}>
+      <div className="flex items-center gap-2 pt-1">
+        <Button size="sm" className="h-8 gap-1.5" onClick={handleSave} disabled={saving || !hasContent}>
+          <Save className="h-3.5 w-3.5" />
           {saving ? "Saving..." : "Save Audience"}
         </Button>
         {hasContent && (
