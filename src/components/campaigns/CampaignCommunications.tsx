@@ -1,4 +1,4 @@
-import { useState, Fragment } from "react";
+import { useState, Fragment, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Plus, Search, MessageSquare, AlertTriangle, ChevronDown, ChevronRight, Phone, ArrowUpDown, RefreshCw } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, Search, MessageSquare, AlertTriangle, ChevronDown, ChevronRight, Phone, ArrowUpDown, RefreshCw, Send, Mail, ListChecks, Reply } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -17,6 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { format } from "date-fns";
 import { useUserDisplayNames } from "@/hooks/useUserDisplayNames";
 import { useCRUDAudit } from "@/hooks/useCRUDAudit";
+import { EmailComposeModal } from "./EmailComposeModal";
 
 interface Props {
   campaignId: string;
@@ -33,6 +35,10 @@ export function CampaignCommunications({ campaignId, isCampaignEnded }: Props) {
   const queryClient = useQueryClient();
   const { logCreate } = useCRUDAudit();
   const [logModalOpen, setLogModalOpen] = useState(false);
+  const [emailComposeOpen, setEmailComposeOpen] = useState(false);
+  const [taskModalOpen, setTaskModalOpen] = useState(false);
+  const [taskContactId, setTaskContactId] = useState("");
+  const [taskForm, setTaskForm] = useState({ title: "", description: "", due_date: "", priority: "Medium" });
   const [channelFilter, setChannelFilter] = useState("all");
   const [accountFilter, setAccountFilter] = useState("all");
   const [contactFilter, setContactFilter] = useState("all");
@@ -40,6 +46,7 @@ export function CampaignCommunications({ campaignId, isCampaignEnded }: Props) {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortAsc, setSortAsc] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<"list" | "threads">("list");
 
   const { data: communications = [], refetch } = useQuery({
     queryKey: ["campaign-communications", campaignId],
@@ -59,7 +66,7 @@ export function CampaignCommunications({ campaignId, isCampaignEnded }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("campaign_contacts")
-        .select("contact_id, account_id, contacts(contact_name)")
+        .select("contact_id, account_id, contacts(contact_name, email, company_name, position)")
         .eq("campaign_id", campaignId);
       if (error) throw error;
       return data;
@@ -90,6 +97,28 @@ export function CampaignCommunications({ campaignId, isCampaignEnded }: Props) {
   const ownerIds = [...new Set(communications.map((c: any) => c.owner).filter(Boolean))] as string[];
   const { displayNames } = useUserDisplayNames(ownerIds);
 
+  // Group communications into threads by contact
+  const threads = useMemo(() => {
+    const byContact: Record<string, any[]> = {};
+    communications.forEach((c: any) => {
+      const key = c.contact_id || "no-contact";
+      if (!byContact[key]) byContact[key] = [];
+      byContact[key].push(c);
+    });
+    return Object.entries(byContact).map(([contactId, msgs]) => ({
+      contactId,
+      contactName: msgs[0]?.contacts?.contact_name || "Unknown",
+      accountName: msgs[0]?.accounts?.account_name || "",
+      messages: msgs.sort((a, b) => new Date(a.communication_date || 0).getTime() - new Date(b.communication_date || 0).getTime()),
+      lastActivity: msgs[0]?.communication_date,
+      channelCounts: {
+        Email: msgs.filter(m => m.communication_type === "Email").length,
+        Call: msgs.filter(m => m.communication_type === "Call").length,
+        LinkedIn: msgs.filter(m => m.communication_type === "LinkedIn").length,
+      },
+    })).sort((a, b) => new Date(b.lastActivity || 0).getTime() - new Date(a.lastActivity || 0).getTime());
+  }, [communications]);
+
   const [logForm, setLogForm] = useState({
     communication_type: "Email", contact_id: "", subject: "", body: "", notes: "",
     email_status: "Sent", call_outcome: "", linkedin_status: "Connection Sent",
@@ -104,7 +133,7 @@ export function CampaignCommunications({ campaignId, isCampaignEnded }: Props) {
     const contactRecord = campaignContacts.find((cc: any) => cc.contact_id === logForm.contact_id);
     const accountId = contactRecord?.account_id || null;
 
-    const { error } = await supabase.from("campaign_communications").insert({
+    const { data: inserted, error } = await supabase.from("campaign_communications").insert({
       campaign_id: campaignId, contact_id: logForm.contact_id || null,
       account_id: accountId, communication_type: logForm.communication_type,
       subject: logForm.subject || null, body: logForm.body || null,
@@ -112,9 +141,11 @@ export function CampaignCommunications({ campaignId, isCampaignEnded }: Props) {
       email_status: logForm.communication_type === "Email" ? logForm.email_status : null,
       call_outcome: logForm.communication_type === "Call" ? logForm.call_outcome : null,
       linkedin_status: logForm.communication_type === "LinkedIn" ? logForm.linkedin_status : null,
+      delivery_status: logForm.communication_type === "Email" ? "manual" : null,
+      sent_via: "manual",
       owner: user!.id, created_by: user!.id,
       communication_date: new Date().toISOString(),
-    });
+    }).select("id").single();
 
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
 
@@ -135,7 +166,7 @@ export function CampaignCommunications({ campaignId, isCampaignEnded }: Props) {
       }
     }
 
-    // Recompute account status from all contacts (full derivation)
+    // Recompute account status
     if (accountId) {
       const { data: acContacts } = await supabase.from("campaign_contacts")
         .select("stage").eq("campaign_id", campaignId).eq("account_id", accountId);
@@ -153,8 +184,7 @@ export function CampaignCommunications({ campaignId, isCampaignEnded }: Props) {
     queryClient.invalidateQueries({ queryKey: ["campaign-accounts", campaignId] });
     setLogModalOpen(false);
 
-    // Audit log
-    await logCreate('campaign_communications', '', {
+    await logCreate('campaign_communications', inserted?.id || '', {
       campaign_id: campaignId,
       communication_type: logForm.communication_type,
       contact_id: logForm.contact_id,
@@ -163,6 +193,48 @@ export function CampaignCommunications({ campaignId, isCampaignEnded }: Props) {
 
     setLogForm({ communication_type: "Email", contact_id: "", subject: "", body: "", notes: "", email_status: "Sent", call_outcome: "", linkedin_status: "Connection Sent" });
     toast({ title: "Communication logged" });
+  };
+
+  const handleCreateTask = async () => {
+    if (!taskForm.title.trim()) { toast({ title: "Task title is required", variant: "destructive" }); return; }
+
+    const { data: inserted, error } = await supabase.from("action_items").insert({
+      title: taskForm.title,
+      description: taskForm.description || null,
+      due_date: taskForm.due_date || null,
+      priority: taskForm.priority,
+      status: "Open",
+      module_type: "campaigns",
+      module_id: campaignId,
+      created_by: user!.id,
+      assigned_to: user!.id,
+    }).select("id").single();
+
+    if (error) { toast({ title: "Error creating task", description: error.message, variant: "destructive" }); return; }
+
+    await logCreate('action_items', inserted?.id || '', {
+      title: taskForm.title,
+      module_type: 'campaigns',
+      campaign_id: campaignId,
+      contact_id: taskContactId,
+    });
+
+    setTaskModalOpen(false);
+    setTaskForm({ title: "", description: "", due_date: "", priority: "Medium" });
+    setTaskContactId("");
+    toast({ title: "Task created" });
+  };
+
+  const openTaskForContact = (contactId: string, contactName: string) => {
+    setTaskContactId(contactId);
+    setTaskForm({ title: `Follow up with ${contactName}`, description: "", due_date: "", priority: "Medium" });
+    setTaskModalOpen(true);
+  };
+
+  const handleEmailSent = () => {
+    queryClient.invalidateQueries({ queryKey: ["campaign-communications", campaignId] });
+    queryClient.invalidateQueries({ queryKey: ["campaign-contacts", campaignId] });
+    queryClient.invalidateQueries({ queryKey: ["campaign-accounts", campaignId] });
   };
 
   const toggleExpand = (id: string) => {
@@ -203,6 +275,17 @@ export function CampaignCommunications({ campaignId, isCampaignEnded }: Props) {
     return <Badge className={colors[type] || ""} variant="secondary">{type}</Badge>;
   };
 
+  const deliveryBadge = (status: string | null) => {
+    if (!status) return null;
+    const colors: Record<string, string> = {
+      sent: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+      failed: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+      pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+      manual: "bg-muted text-muted-foreground",
+    };
+    return <Badge className={`text-[10px] ${colors[status] || ""}`} variant="secondary">{status}</Badge>;
+  };
+
   const accountOptions = campaignAccounts.map((ca: any) => ({ id: ca.account_id, name: ca.accounts?.account_name || "Unknown" }));
   const contactOptions = campaignContacts.map((cc: any) => ({ id: cc.contact_id, name: cc.contacts?.contact_name || "Unknown" }));
 
@@ -210,13 +293,26 @@ export function CampaignCommunications({ campaignId, isCampaignEnded }: Props) {
     <div className="space-y-3">
       <Card className="border">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2"><MessageSquare className="h-4 w-4" /> Outreach Log ({communications.length})</CardTitle>
+          <CardTitle className="text-base flex items-center gap-2"><MessageSquare className="h-4 w-4" /> Outreach ({communications.length})</CardTitle>
           <div className="flex items-center gap-2">
+            <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)} className="h-8">
+              <TabsList className="h-7">
+                <TabsTrigger value="list" className="text-xs h-6 px-2">List</TabsTrigger>
+                <TabsTrigger value="threads" className="text-xs h-6 px-2">Threads</TabsTrigger>
+              </TabsList>
+            </Tabs>
             <Button variant="outline" size="sm" onClick={() => refetch()}>
               <RefreshCw className="h-3.5 w-3.5 mr-1" /> Refresh
             </Button>
             {!isCampaignEnded ? (
-              <Button size="sm" onClick={() => setLogModalOpen(true)}><Plus className="h-4 w-4 mr-1" /> Log Outreach</Button>
+              <div className="flex gap-1.5">
+                <Button size="sm" variant="default" className="gap-1" onClick={() => setEmailComposeOpen(true)}>
+                  <Send className="h-3.5 w-3.5" /> Send Email
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setLogModalOpen(true)}>
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Log
+                </Button>
+              </div>
             ) : (
               <Badge variant="destructive" className="flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Ended</Badge>
             )}
@@ -267,60 +363,148 @@ export function CampaignCommunications({ campaignId, isCampaignEnded }: Props) {
             )}
           </div>
 
-          {sorted.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-sm text-muted-foreground">No outreach logged yet. Go to the Contacts tab to send emails, log calls, or track LinkedIn.</p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-8"></TableHead>
-                  <TableHead className="cursor-pointer select-none" onClick={() => setSortAsc(!sortAsc)}>
-                    <span className="flex items-center gap-1">Date <ArrowUpDown className="h-3 w-3" /></span>
-                  </TableHead>
-                  <TableHead>Channel</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Account</TableHead>
-                  <TableHead>Status / Outcome</TableHead>
-                  <TableHead>Owner</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sorted.map((c: any) => (
-                  <Fragment key={c.id}>
-                    <TableRow key={c.id} className="cursor-pointer" onClick={() => toggleExpand(c.id)}>
-                      <TableCell className="px-2">
-                        {expandedRows.has(c.id) ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                      </TableCell>
-                      <TableCell className="text-sm whitespace-nowrap">{c.communication_date ? format(new Date(c.communication_date), "dd MMM yyyy HH:mm") : "—"}</TableCell>
-                      <TableCell>{channelBadge(c.communication_type)}</TableCell>
-                      <TableCell className="font-medium">{c.contacts?.contact_name || "—"}</TableCell>
-                      <TableCell>{c.accounts?.account_name || "—"}</TableCell>
-                      <TableCell>{c.email_status || c.call_outcome || c.linkedin_status || "—"}</TableCell>
-                      <TableCell className="text-sm">{c.owner ? displayNames[c.owner] || "—" : "—"}</TableCell>
-                    </TableRow>
-                    {expandedRows.has(c.id) && (
-                      <TableRow key={`${c.id}-details`}>
-                        <TableCell colSpan={7} className="bg-muted/30 p-4">
-                          <div className="grid grid-cols-2 gap-4 text-sm">
-                            {c.subject && <div><span className="text-muted-foreground">Subject:</span> {c.subject}</div>}
-                            {c.body && <div><span className="text-muted-foreground">Body:</span> <span className="whitespace-pre-wrap">{c.body}</span></div>}
-                            {c.notes && <div className="col-span-2"><span className="text-muted-foreground">Notes:</span> {c.notes}</div>}
-                            {c.communication_type === "Email" && c.email_status && <div><span className="text-muted-foreground">Email Status:</span> {c.email_status}</div>}
-                            {c.communication_type === "Call" && c.call_outcome && <div><span className="text-muted-foreground">Outcome:</span> {c.call_outcome}</div>}
-                            {c.communication_type === "LinkedIn" && c.linkedin_status && <div><span className="text-muted-foreground">LinkedIn Status:</span> {c.linkedin_status}</div>}
+          {/* Thread View */}
+          {viewMode === "threads" && (
+            <div className="space-y-2">
+              {threads.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-sm text-muted-foreground">No outreach logged yet.</p>
+                </div>
+              ) : (
+                threads.map(thread => (
+                  <Card key={thread.contactId} className="border">
+                    <Collapsible>
+                      <CollapsibleTrigger asChild>
+                        <CardHeader className="py-2.5 px-4 cursor-pointer hover:bg-muted/30 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-sm">{thread.contactName}</span>
+                              {thread.accountName && <span className="text-xs text-muted-foreground">· {thread.accountName}</span>}
+                              <span className="text-xs text-muted-foreground">({thread.messages.length} messages)</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              {thread.channelCounts.Email > 0 && <Badge variant="secondary" className="text-[10px] gap-0.5"><Mail className="h-2.5 w-2.5" />{thread.channelCounts.Email}</Badge>}
+                              {thread.channelCounts.Call > 0 && <Badge variant="secondary" className="text-[10px] gap-0.5"><Phone className="h-2.5 w-2.5" />{thread.channelCounts.Call}</Badge>}
+                              {thread.channelCounts.LinkedIn > 0 && <Badge variant="secondary" className="text-[10px] gap-0.5"><MessageSquare className="h-2.5 w-2.5" />{thread.channelCounts.LinkedIn}</Badge>}
+                              {!isCampaignEnded && (
+                                <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-0.5" onClick={(e) => { e.stopPropagation(); openTaskForContact(thread.contactId, thread.contactName); }}>
+                                  <ListChecks className="h-3 w-3" /> Task
+                                </Button>
+                              )}
+                            </div>
                           </div>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </Fragment>
-                ))}
-              </TableBody>
-            </Table>
+                        </CardHeader>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <CardContent className="pt-0 px-4 pb-3">
+                          <div className="space-y-2 border-l-2 border-muted pl-3">
+                            {thread.messages.map((msg: any) => (
+                              <div key={msg.id} className="text-sm">
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  {channelBadge(msg.communication_type)}
+                                  <span>{msg.communication_date ? format(new Date(msg.communication_date), "dd MMM yyyy HH:mm") : "—"}</span>
+                                  {msg.delivery_status && deliveryBadge(msg.delivery_status)}
+                                  {msg.sent_via === "azure" && <Badge variant="outline" className="text-[10px] px-1 py-0">Sent via email</Badge>}
+                                  <span className="ml-auto">{msg.owner ? displayNames[msg.owner] || "—" : "—"}</span>
+                                </div>
+                                {msg.subject && <p className="font-medium mt-0.5">{msg.subject}</p>}
+                                {msg.body && <p className="text-muted-foreground whitespace-pre-wrap mt-0.5 text-xs">{msg.body.substring(0, 200)}{msg.body.length > 200 ? "..." : ""}</p>}
+                                {msg.notes && <p className="text-xs italic text-muted-foreground mt-0.5">Note: {msg.notes}</p>}
+                                {msg.email_status && <span className="text-xs text-muted-foreground">Status: {msg.email_status}</span>}
+                                {msg.call_outcome && <span className="text-xs text-muted-foreground">Outcome: {msg.call_outcome}</span>}
+                                {msg.linkedin_status && <span className="text-xs text-muted-foreground">LinkedIn: {msg.linkedin_status}</span>}
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </Card>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* List View */}
+          {viewMode === "list" && (
+            <>
+              {sorted.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-sm text-muted-foreground">No outreach logged yet. Use "Send Email" to compose or "Log" to record outreach.</p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-8"></TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={() => setSortAsc(!sortAsc)}>
+                        <span className="flex items-center gap-1">Date <ArrowUpDown className="h-3 w-3" /></span>
+                      </TableHead>
+                      <TableHead>Channel</TableHead>
+                      <TableHead>Contact</TableHead>
+                      <TableHead>Account</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Delivery</TableHead>
+                      <TableHead>Owner</TableHead>
+                      <TableHead className="w-20">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sorted.map((c: any) => (
+                      <Fragment key={c.id}>
+                        <TableRow className="cursor-pointer" onClick={() => toggleExpand(c.id)}>
+                          <TableCell className="px-2">
+                            {expandedRows.has(c.id) ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                          </TableCell>
+                          <TableCell className="text-sm whitespace-nowrap">{c.communication_date ? format(new Date(c.communication_date), "dd MMM yyyy HH:mm") : "—"}</TableCell>
+                          <TableCell>{channelBadge(c.communication_type)}</TableCell>
+                          <TableCell className="font-medium">{c.contacts?.contact_name || "—"}</TableCell>
+                          <TableCell>{c.accounts?.account_name || "—"}</TableCell>
+                          <TableCell>{c.email_status || c.call_outcome || c.linkedin_status || "—"}</TableCell>
+                          <TableCell>{deliveryBadge(c.delivery_status)}</TableCell>
+                          <TableCell className="text-sm">{c.owner ? displayNames[c.owner] || "—" : "—"}</TableCell>
+                          <TableCell onClick={(e) => e.stopPropagation()}>
+                            {!isCampaignEnded && c.contacts?.contact_name && (
+                              <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-0.5"
+                                onClick={() => openTaskForContact(c.contact_id, c.contacts?.contact_name || "")}>
+                                <ListChecks className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                        {expandedRows.has(c.id) && (
+                          <TableRow>
+                            <TableCell colSpan={9} className="bg-muted/30 p-4">
+                              <div className="grid grid-cols-2 gap-4 text-sm">
+                                {c.subject && <div><span className="text-muted-foreground">Subject:</span> {c.subject}</div>}
+                                {c.body && <div><span className="text-muted-foreground">Body:</span> <span className="whitespace-pre-wrap">{c.body}</span></div>}
+                                {c.notes && <div className="col-span-2"><span className="text-muted-foreground">Notes:</span> {c.notes}</div>}
+                                {c.communication_type === "Email" && c.email_status && <div><span className="text-muted-foreground">Email Status:</span> {c.email_status}</div>}
+                                {c.communication_type === "Call" && c.call_outcome && <div><span className="text-muted-foreground">Outcome:</span> {c.call_outcome}</div>}
+                                {c.communication_type === "LinkedIn" && c.linkedin_status && <div><span className="text-muted-foreground">LinkedIn Status:</span> {c.linkedin_status}</div>}
+                                {c.delivery_status && <div><span className="text-muted-foreground">Delivery:</span> {c.delivery_status} {c.sent_via && `(via ${c.sent_via})`}</div>}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </Fragment>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
+
+      {/* Email Compose Modal */}
+      <EmailComposeModal
+        open={emailComposeOpen}
+        onOpenChange={setEmailComposeOpen}
+        campaignId={campaignId}
+        contacts={campaignContacts as any}
+        onEmailSent={handleEmailSent}
+      />
 
       {/* Log Outreach Modal */}
       <Dialog open={logModalOpen} onOpenChange={setLogModalOpen}>
@@ -359,7 +543,7 @@ export function CampaignCommunications({ campaignId, isCampaignEnded }: Props) {
                     <Select value={logForm.email_status} onValueChange={(v) => setLogForm({ ...logForm, email_status: v })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Sent">Sent</SelectItem><SelectItem value="Opened">Opened</SelectItem><SelectItem value="Replied">Replied</SelectItem>
+                        <SelectItem value="Sent">Sent</SelectItem><SelectItem value="Delivered">Delivered</SelectItem><SelectItem value="Opened">Opened</SelectItem><SelectItem value="Replied">Replied</SelectItem><SelectItem value="Bounced">Bounced</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -373,6 +557,7 @@ export function CampaignCommunications({ campaignId, isCampaignEnded }: Props) {
                     <SelectContent>
                       <SelectItem value="Interested">Interested</SelectItem><SelectItem value="Not Interested">Not Interested</SelectItem>
                       <SelectItem value="Call Later">Call Later</SelectItem><SelectItem value="Wrong Contact">Wrong Contact</SelectItem>
+                      <SelectItem value="No Answer">No Answer</SelectItem><SelectItem value="Voicemail">Voicemail</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -384,7 +569,8 @@ export function CampaignCommunications({ campaignId, isCampaignEnded }: Props) {
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Connection Sent">Connection Sent</SelectItem><SelectItem value="Connected">Connected</SelectItem>
-                      <SelectItem value="Message Sent">Message Sent</SelectItem><SelectItem value="Responded">Responded</SelectItem>
+                      <SelectItem value="Message Sent">Message Sent</SelectItem><SelectItem value="InMail Sent">InMail Sent</SelectItem>
+                      <SelectItem value="Responded">Responded</SelectItem><SelectItem value="Not Interested">Not Interested</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -414,6 +600,44 @@ export function CampaignCommunications({ campaignId, isCampaignEnded }: Props) {
           <DialogFooter>
             <Button variant="outline" onClick={() => setLogModalOpen(false)}>Cancel</Button>
             <Button onClick={handleLogCommunication}>Log</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Task Modal */}
+      <Dialog open={taskModalOpen} onOpenChange={setTaskModalOpen}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><ListChecks className="h-4 w-4" /> Create Follow-up Task</DialogTitle></DialogHeader>
+          <div className="grid gap-3 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Title *</Label>
+              <Input value={taskForm.title} onChange={e => setTaskForm({ ...taskForm, title: e.target.value })} placeholder="Task title..." className="text-sm" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Description</Label>
+              <Textarea value={taskForm.description} onChange={e => setTaskForm({ ...taskForm, description: e.target.value })} placeholder="Additional details..." rows={2} className="text-sm" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Due Date</Label>
+                <Input type="date" value={taskForm.due_date} onChange={e => setTaskForm({ ...taskForm, due_date: e.target.value })} className="text-sm h-8" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Priority</Label>
+                <Select value={taskForm.priority} onValueChange={v => setTaskForm({ ...taskForm, priority: v })}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Low">Low</SelectItem>
+                    <SelectItem value="Medium">Medium</SelectItem>
+                    <SelectItem value="High">High</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTaskModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreateTask}>Create Task</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
