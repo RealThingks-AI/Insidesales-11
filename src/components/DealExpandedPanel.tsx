@@ -767,12 +767,11 @@ export const DealExpandedPanel = ({
 
     setIsSavingLog(true);
     try {
-      const { error } = await supabase.from("security_audit_log").insert({
-        action: logType.toUpperCase(),
-        resource_type: "deals",
-        resource_id: deal.id,
-        user_id: user.id,
-        details: {
+      const { error } = await supabase.rpc('log_security_event', {
+        p_action: logType.toUpperCase(),
+        p_resource_type: 'deals',
+        p_resource_id: deal.id,
+        p_details: {
           message: logMessage.trim(),
           log_type: logType,
           manual_entry: true
